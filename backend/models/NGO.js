@@ -6,6 +6,13 @@ const ngoSchema = new mongoose.Schema(
     description: { type: String, trim: true },
     location: { type: String, trim: true },
     photo: { type: String }, // URL to uploaded image
+    category: {
+      type: String,
+      enum: ["education", "health", "environment", "food", "animal", "disaster", "women", "youth", "other"],
+      default: "other",
+    },
+    contact: { type: String, trim: true }, // email or phone
+    website: { type: String, trim: true },
     verified: { type: Boolean, default: false },
     rejected: { type: Boolean, default: false }, // admin rejected flag
     createdBy: {

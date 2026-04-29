@@ -3,14 +3,19 @@ const User = require("../models/User");
 const Event = require("../models/Event");
 const Volunteer = require("../models/Volunteer");
 const Donation = require("../models/Donation");
+const { sendNGOVerifiedEmail, sendNGORejectedEmail } = require("../utils/emailService");
 
 // POST /api/ngo/register
 const registerNGO = async (req, res) => {
   try {
-    const { name, description, location } = req.body;
+    const { name, description, location, category, contact, website } = req.body;
     const userId = req.user._id;
     if (!name) return res.status(400).json({ message: "NGO name is required" });
-    const ngo = await NGO.create({ name, description, location, createdBy: userId });
+    // Check if this user already has an NGO
+    const existing = await NGO.findOne({ createdBy: userId });
+    if (existing) return res.status(409).json({ message: "You have already registered an NGO" });
+    const photo = req.file ? req.file.path : undefined; // Cloudinary secure URL if uploaded
+    const ngo = await NGO.create({ name, description, location, category: category || "other", contact, website, photo, createdBy: userId });
     res.status(201).json({ message: "NGO registered! Awaiting admin verification.", ngo });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -20,7 +25,15 @@ const registerNGO = async (req, res) => {
 // GET /api/ngo/all  — public verified only
 const getAllNGOs = async (req, res) => {
   try {
-    const ngos = await NGO.find({ verified: true }).populate("createdBy", "name email");
+    const { category, search } = req.query;
+    let filter = { verified: true };
+    if (category && category !== "all") filter.category = category;
+    if (search) filter.$or = [
+      { name: { $regex: search, $options: "i" } },
+      { description: { $regex: search, $options: "i" } },
+      { location: { $regex: search, $options: "i" } },
+    ];
+    const ngos = await NGO.find(filter).populate("createdBy", "name email");
     res.status(200).json({ message: "Verified NGOs", count: ngos.length, ngos });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -52,12 +65,19 @@ const getNGOById = async (req, res) => {
 // PUT /api/ngo/verify/:id  — admin verifies
 const verifyNGO = async (req, res) => {
   try {
-    const ngo = await NGO.findById(req.params.id);
+    const ngo = await NGO.findById(req.params.id).populate("createdBy", "name email");
     if (!ngo) return res.status(404).json({ message: "NGO not found" });
-    if (ngo.verified) return res.status(400).json({ message: "Already verified" });
     ngo.verified = true;
     ngo.rejected = false;
     await ngo.save();
+    // Send email notification (fire-and-forget)
+    if (ngo.createdBy?.email) {
+      sendNGOVerifiedEmail({
+        to: ngo.createdBy.email,
+        ngoName: ngo.name,
+        ownerName: ngo.createdBy.name || "there",
+      });
+    }
     res.status(200).json({ message: "NGO verified ✅", ngo });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -67,11 +87,20 @@ const verifyNGO = async (req, res) => {
 // PUT /api/ngo/reject/:id  — admin rejects
 const rejectNGO = async (req, res) => {
   try {
-    const ngo = await NGO.findById(req.params.id);
+    const ngo = await NGO.findById(req.params.id).populate("createdBy", "name email");
     if (!ngo) return res.status(404).json({ message: "NGO not found" });
     ngo.verified = false;
     ngo.rejected = true;
     await ngo.save();
+    // Send email notification (fire-and-forget)
+    if (ngo.createdBy?.email) {
+      sendNGORejectedEmail({
+        to: ngo.createdBy.email,
+        ngoName: ngo.name,
+        ownerName: ngo.createdBy.name || "there",
+        reason: req.body.reason || null,
+      });
+    }
     res.status(200).json({ message: "NGO rejected", ngo });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -82,7 +111,7 @@ const rejectNGO = async (req, res) => {
 const updateNGOProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, location } = req.body;
+    const { name, description, location, category, contact, website } = req.body;
 
     const ngo = await NGO.findById(id);
     if (!ngo) return res.status(404).json({ message: "NGO not found" });
@@ -93,9 +122,12 @@ const updateNGOProfile = async (req, res) => {
     }
 
     if (name) ngo.name = name;
-    if (description) ngo.description = description;
-    if (location) ngo.location = location;
-    if (req.file) ngo.photo = `/uploads/${req.file.filename}`;
+    if (description !== undefined) ngo.description = description;
+    if (location !== undefined) ngo.location = location;
+    if (category) ngo.category = category;
+    if (contact !== undefined) ngo.contact = contact;
+    if (website !== undefined) ngo.website = website;
+    if (req.file) ngo.photo = req.file.path; // Cloudinary secure URL
 
     await ngo.save();
     res.status(200).json({ message: "NGO profile updated ✅", ngo });

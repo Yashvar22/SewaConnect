@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { getAllUsers, deleteUser, getStats, getUserActivity } = require("../controllers/adminController");
+const { getAllUsers, deleteUser, getStats, getUserActivity, getChartData } = require("../controllers/adminController");
 const { protect } = require("../middleware/authMiddleware");
 const { authorizeRoles } = require("../middleware/roleMiddleware");
 
@@ -18,5 +18,8 @@ router.get("/users/:id/activity", getUserActivity);
 
 // DELETE /api/admin/users/:id        → delete a user
 router.delete("/users/:id", deleteUser);
+
+// GET /api/admin/chart-data           → aggregated chart data
+router.get("/chart-data", getChartData);
 
 module.exports = router;

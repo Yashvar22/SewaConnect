@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
 const DonatePage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectedNgoId = searchParams.get("ngo") || "";
+
   const [ngos, setNgos] = useState([]);
   const [donationType, setDonationType] = useState("item"); // "money" | "item"
   const [myDonations, setMyDonations] = useState([]);
@@ -20,7 +23,7 @@ const DonatePage = () => {
     description: "",
     pickupOption: "pickup",
     pickupAddress: "",
-    ngoId: "",
+    ngoId: preselectedNgoId,
     image: null,
   });
 
@@ -28,7 +31,7 @@ const DonatePage = () => {
   const [moneyForm, setMoneyForm] = useState({
     amount: "",
     description: "",
-    ngoId: "",
+    ngoId: preselectedNgoId,
   });
 
   const [preview, setPreview] = useState(null);
@@ -46,6 +49,14 @@ const DonatePage = () => {
       .catch(() => {})
       .finally(() => setHistoryLoading(false));
   }, []);
+
+  // Sync preselectedNgoId into forms once NGOs are loaded
+  useEffect(() => {
+    if (preselectedNgoId) {
+      setItemForm(f => ({ ...f, ngoId: preselectedNgoId }));
+      setMoneyForm(f => ({ ...f, ngoId: preselectedNgoId }));
+    }
+  }, [preselectedNgoId]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -106,11 +117,19 @@ const DonatePage = () => {
 
   const formatDate = (d) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
+  // Find preselected NGO name for UI display
+  const preselectedNgo = preselectedNgoId ? ngos.find(n => n._id === preselectedNgoId) : null;
+
   return (
     <div className="page">
       <div className="page-header">
         <h1>💝 Make a Donation</h1>
         <p>Your generosity creates real impact in the community</p>
+        {preselectedNgo && (
+          <div className="alert success" style={{ marginTop: "1rem", display: "inline-flex" }}>
+            ✅ Donating to: <strong style={{ marginLeft: "0.4rem" }}>{preselectedNgo.name}</strong>
+          </div>
+        )}
       </div>
 
       {message && <div className="alert success">{message}</div>}
@@ -200,7 +219,7 @@ const DonatePage = () => {
 
             {/* Image Upload */}
             <div className="form-group">
-              <label>Upload Item Image</label>
+              <label>Upload Item Image (optional)</label>
               <div className="image-upload-area" onClick={() => document.getElementById("item-image-input").click()}>
                 {preview ? (
                   <img src={preview} alt="Preview" className="image-preview" />
@@ -231,7 +250,9 @@ const DonatePage = () => {
             </div>
 
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? "Submitting..." : "📦 Submit Item Donation"}
+              {loading ? (
+                <span className="btn-loading"><span className="btn-spinner" />Submitting...</span>
+              ) : "📦 Submit Item Donation"}
             </button>
           </form>
         </div>
@@ -295,7 +316,9 @@ const DonatePage = () => {
             </div>
 
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? "Processing..." : "💵 Confirm Donation"}
+              {loading ? (
+                <span className="btn-loading"><span className="btn-spinner" />Processing...</span>
+              ) : "💵 Confirm Donation"}
             </button>
           </form>
         </div>
@@ -337,7 +360,7 @@ const DonatePage = () => {
                 </div>
                 {d.image && (
                   <img
-                    src={`http://localhost:5000${d.image}`}
+                    src={d.image?.startsWith("http") ? d.image : `http://localhost:5000${d.image}`}
                     alt="Donated item"
                     className="donation-thumb"
                   />

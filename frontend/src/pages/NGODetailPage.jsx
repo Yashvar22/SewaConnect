@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import MapView from "../components/MapView";
 
 const NGODetailPage = () => {
   const { id } = useParams();
@@ -44,7 +45,7 @@ const NGODetailPage = () => {
       <div className="detail-hero">
         <div className="detail-avatar-wrap">
           {ngo.photo
-            ? <img src={`http://localhost:5000${ngo.photo}`} alt={ngo.name} className="detail-avatar-img" style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 18 }} />
+            ? <img src={ngo.photo.startsWith("http") ? ngo.photo : `http://localhost:5000${ngo.photo}`} alt={ngo.name} className="detail-avatar-img" style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 18 }} />
             : <div className="ngo-avatar lg">{ngo.name.charAt(0).toUpperCase()}</div>}
         </div>
         <div className="detail-info" style={{ flex: 1 }}>
@@ -52,8 +53,28 @@ const NGODetailPage = () => {
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
             {statusBadge}
             {ngo.location && <span className="location-tag">📍 {ngo.location}</span>}
+            {ngo.category && (
+              <span className="badge badge-blue" style={{ textTransform: "capitalize" }}>
+                🏷️ {ngo.category}
+              </span>
+            )}
           </div>
           <p className="detail-desc">{ngo.description || "No description provided."}</p>
+          {/* Contact & Website */}
+          <div className="ngo-meta-row">
+            {ngo.contact && (
+              <span className="ngo-meta-chip">
+                📞 <span>{ngo.contact}</span>
+              </span>
+            )}
+            {ngo.website && (
+              <span className="ngo-meta-chip">
+                🌐 <a href={ngo.website.startsWith("http") ? ngo.website : `https://${ngo.website}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+                  {ngo.website.replace(/^https?:\/\//, "")}
+                </a>
+              </span>
+            )}
+          </div>
           <p className="card-meta" style={{ marginTop: "0.75rem" }}>
             Registered by <strong>{ngo.createdBy?.name}</strong>
           </p>
@@ -71,6 +92,24 @@ const NGODetailPage = () => {
           </div>
         )}
       </div>
+
+      {/* Location Map */}
+      {ngo.location && (
+        <div className="map-section">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+            <p className="map-section-title">🗺️ Location Map</p>
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ngo.location)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="map-open-link"
+            >
+              Open in Google Maps ↗
+            </a>
+          </div>
+          <MapView location={ngo.location} label={ngo.name} height="280px" />
+        </div>
+      )}
 
       {/* Stats Bar */}
       {stats && (

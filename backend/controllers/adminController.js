@@ -78,4 +78,67 @@ const getUserActivity = async (req, res) => {
   }
 };
 
-module.exports = { getAllUsers, deleteUser, getStats, getUserActivity };
+// @desc    Get chart data for Admin dashboard
+// @route   GET /api/admin/chart-data
+const getChartData = async (req, res) => {
+  try {
+    // 1. NGO category distribution
+    const categoryAgg = await NGO.aggregate([
+      { $group: { _id: "$category", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+    const categoryData = {
+      labels: categoryAgg.map(c => c._id || "other"),
+      counts: categoryAgg.map(c => c.count),
+    };
+
+    // 2. Monthly donations — last 6 months
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+    sixMonthsAgo.setDate(1);
+    sixMonthsAgo.setHours(0, 0, 0, 0);
+
+    const donationAgg = await Donation.aggregate([
+      { $match: { createdAt: { $gte: sixMonthsAgo } } },
+      {
+        $group: {
+          _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
+          total: { $sum: 1 },
+          moneyTotal: { $sum: { $cond: [{ $eq: ["$type", "money"] }, "$amount", 0] } },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]);
+
+    // Build 6-month label array (oldest → newest)
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const monthLabels = [], donationCounts = [], moneySums = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const yr = d.getFullYear(), mo = d.getMonth() + 1;
+      monthLabels.push(`${monthNames[d.getMonth()]} '${String(yr).slice(2)}`);
+      const found = donationAgg.find(a => a._id.year === yr && a._id.month === mo);
+      donationCounts.push(found ? found.total : 0);
+      moneySums.push(found ? Math.round(found.moneyTotal) : 0);
+    }
+
+    // 3. Verified vs Pending vs Rejected NGOs
+    const [verifiedCount, pendingCount, rejectedCount] = await Promise.all([
+      NGO.countDocuments({ verified: true }),
+      NGO.countDocuments({ verified: false, rejected: false }),
+      NGO.countDocuments({ rejected: true }),
+    ]);
+
+    res.status(200).json({
+      categoryData,
+      donationTrend: { labels: monthLabels, counts: donationCounts, amounts: moneySums },
+      ngoStatus: { verified: verifiedCount, pending: pendingCount, rejected: rejectedCount },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+module.exports = { getAllUsers, deleteUser, getStats, getUserActivity, getChartData };
+

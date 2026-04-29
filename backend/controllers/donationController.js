@@ -17,7 +17,7 @@ const createDonation = async (req, res) => {
 
     // Item donation
     if (!itemName) return res.status(400).json({ message: "Item name is required" });
-    const image = req.file ? `/uploads/${req.file.filename}` : undefined;
+    const image = req.file ? req.file.path : undefined; // Cloudinary secure URL
     const donation = await Donation.create({
       type: "item", itemName, description, image, pickupAddress, pickupOption, donorId, ngoId: ngoId || undefined,
     });

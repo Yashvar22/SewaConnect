@@ -1,7 +1,7 @@
-# 🚀 NGO Connect - Project Progress & Analysis
+# 🚀 SewaConnect - Project Progress & Analysis
 
 ## 📊 Project Overview
-**NGO Connect** is a full-stack MERN application designed to bridge the gap between NGOs, volunteers, and donors. It features a robust role-based system with specialized dashboards for Administrators, NGOs, and Volunteers.
+**SewaConnect** is a full-stack MERN application designed to bridge the gap between NGOs, volunteers, and donors. It features a robust role-based system with specialized dashboards for Administrators, NGOs, and Volunteers.
 
 ---
 

@@ -12,7 +12,11 @@ export const AuthProvider = ({ children }) => {
     const storedUser = localStorage.getItem("user");
     if (storedToken && storedUser) {
       setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch {
+        localStorage.removeItem("user");
+      }
     }
     setLoading(false);
   }, []);
@@ -31,8 +35,15 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("user");
   };
 
+  // Update the stored user (e.g. after profile edits)
+  const updateUser = (updates) => {
+    const updated = { ...user, ...updates };
+    setUser(updated);
+    localStorage.setItem("user", JSON.stringify(updated));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, loading, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

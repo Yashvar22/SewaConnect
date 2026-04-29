@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import ConfirmModal from "../components/ConfirmModal";
+import { NGOCategoryChart, DonationTrendChart, NGOStatusChart, VolunteersPerEventChart } from "../components/DashboardCharts";
 
 // ─── USER ACTIVITY MODAL ────────────────────────────────────────
 const UserActivityModal = ({ userId, userName, onClose }) => {
@@ -19,54 +21,88 @@ const UserActivityModal = ({ userId, userName, onClose }) => {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" onClick={e => e.stopPropagation()}>
+      <div className="modal-box" style={{ maxWidth: 680 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>👤 {userName}'s Activity</h2>
+          <h2>👤 {userName} — Full Activity</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         {loading ? (
-          <div className="loading" style={{ padding: "2rem" }}>Loading activity...</div>
+          <div className="loading" style={{ padding: "2rem" }}>
+            <div className="spinner-ring" style={{ margin: "0 auto 1rem" }} />
+            Loading activity...
+          </div>
         ) : !data ? (
           <p className="empty">Could not load activity</p>
         ) : (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1.5rem" }}>
-              <div className="stat-card blue"><span className="stat-card-num">{data.donations?.length || 0}</span><span>Donations</span></div>
-              <div className="stat-card green"><span className="stat-card-num">{data.applications?.length || 0}</span><span>Event Applications</span></div>
+            {/* User Info */}
+            <div style={{ background: "var(--bg3)", borderRadius: 10, padding: "0.9rem 1rem", marginBottom: "1.25rem", border: "1px solid var(--border)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", fontSize: "0.875rem" }}>
+                <div><span style={{ color: "var(--text-dim)" }}>🙋 Name:</span> <strong>{data.user?.name}</strong></div>
+                <div><span style={{ color: "var(--text-dim)" }}>📧 Email:</span> <strong>{data.user?.email}</strong></div>
+                <div><span style={{ color: "var(--text-dim)" }}>🏷️ Role:</span>
+                  <span className={`badge ${data.user?.role === "admin" ? "badge-amber" : data.user?.role === "ngo" ? "badge-green" : "badge-blue"}`} style={{ marginLeft: 4 }}>
+                    {data.user?.role}
+                  </span>
+                </div>
+                <div><span style={{ color: "var(--text-dim)" }}>📅 Joined:</span> <strong>{data.user?.createdAt ? formatDate(data.user.createdAt) : "—"}</strong></div>
+              </div>
             </div>
 
-            <h3 style={{ marginBottom: "0.75rem", fontSize: "0.95rem", fontWeight: 700 }}>📦 Donations</h3>
+            {/* Stats */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "0.6rem", marginBottom: "1.5rem" }}>
+              <div className="stat-card blue"><span className="stat-card-num">{data.donations?.length || 0}</span><span>Donations</span></div>
+              <div className="stat-card green"><span className="stat-card-num">{data.applications?.length || 0}</span><span>Applied</span></div>
+              <div className="stat-card purple"><span className="stat-card-num">{data.donations?.filter(d => d.type === "money").length || 0}</span><span>💵 Money</span></div>
+              <div className="stat-card amber"><span className="stat-card-num">{data.applications?.filter(a => a.status === "approved").length || 0}</span><span>✅ Approved</span></div>
+            </div>
+
+            <h3 style={{ marginBottom: "0.75rem", fontSize: "0.95rem", fontWeight: 700 }}>💝 Donation History</h3>
             {data.donations?.length === 0 ? (
               <p className="empty" style={{ marginBottom: "1.25rem" }}>No donations yet</p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1.25rem" }}>
-                {data.donations.slice(0, 5).map(d => (
+                {data.donations.map(d => (
                   <div key={d._id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.6rem 0.9rem", background: "var(--bg3)", borderRadius: "8px", border: "1px solid var(--border)", fontSize: "0.875rem" }}>
-                    <span>{d.type === "money" ? "💵" : "📦"}</span>
+                    <span style={{ fontSize: "1.2rem" }}>{d.type === "money" ? "💵" : "📦"}</span>
                     <div style={{ flex: 1 }}>
                       <strong style={{ color: "var(--text)" }}>{d.type === "money" ? `₹${d.amount}` : d.itemName}</strong>
-                      {d.ngoId && <small style={{ display: "block", color: "var(--text-muted)" }}>→ {d.ngoId.name}</small>}
+                      <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.2rem", flexWrap: "wrap" }}>
+                        {d.ngoId && <small style={{ color: "var(--text-muted)" }}>🏢 {d.ngoId.name}</small>}
+                        {d.quantity && <small style={{ color: "var(--text-dim)" }}>Qty: {d.quantity}</small>}
+                        {d.message && <small style={{ color: "var(--text-dim)", fontStyle: "italic" }}>"{d.message}"</small>}
+                      </div>
                     </div>
-                    <small style={{ color: "var(--text-dim)" }}>{formatDate(d.createdAt)}</small>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <small style={{ color: "var(--text-dim)" }}>{formatDate(d.createdAt)}</small>
+                      <div>
+                        {d.type === "money"
+                          ? <span className="badge badge-blue" style={{ fontSize: "0.65rem" }}>💵 Money</span>
+                          : <span className="badge badge-amber" style={{ fontSize: "0.65rem" }}>📦 Item</span>}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
 
-            <h3 style={{ marginBottom: "0.75rem", fontSize: "0.95rem", fontWeight: 700 }}>📅 Event Applications</h3>
+            <h3 style={{ marginBottom: "0.75rem", fontSize: "0.95rem", fontWeight: 700 }}>📅 Event Volunteer Applications</h3>
             {data.applications?.length === 0 ? (
               <p className="empty">No applications yet</p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                {data.applications.slice(0, 5).map(app => (
+                {data.applications.map(app => (
                   <div key={app._id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.6rem 0.9rem", background: "var(--bg3)", borderRadius: "8px", border: "1px solid var(--border)", fontSize: "0.875rem" }}>
-                    <span>📅</span>
+                    <span style={{ fontSize: "1.2rem" }}>📅</span>
                     <div style={{ flex: 1 }}>
                       <strong style={{ color: "var(--text)" }}>{app.eventId?.title || "Event"}</strong>
-                      {app.eventId?.ngoId && <small style={{ display: "block", color: "var(--text-muted)" }}>🏢 {app.eventId.ngoId.name}</small>}
+                      <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.2rem", flexWrap: "wrap" }}>
+                        {app.eventId?.ngoId && <small style={{ color: "var(--text-muted)" }}>🏢 {app.eventId.ngoId.name}</small>}
+                        {app.eventId?.date && <small style={{ color: "var(--text-dim)" }}>📅 {formatDate(app.eventId.date)}</small>}
+                      </div>
                     </div>
-                    <span className={`badge ${app.status === "approved" ? "badge-green" : "badge-amber"}`}>
-                      {app.status === "approved" ? "Approved" : "Pending"}
+                    <span className={`badge ${app.status === "approved" ? "badge-green" : app.status === "rejected" ? "badge-red" : "badge-amber"}`}>
+                      {app.status === "approved" ? "✅ Approved" : app.status === "rejected" ? "❌ Rejected" : "⏳ Pending"}
                     </span>
                   </div>
                 ))}
@@ -74,6 +110,102 @@ const UserActivityModal = ({ userId, userName, onClose }) => {
             )}
           </>
         )}
+      </div>
+    </div>
+  );
+};
+
+// ─── NGO DETAIL MODAL (Admin verification view) ─────────────────
+const NGODetailModal = ({ ngo, onClose, onVerify, onReject }) => {
+  if (!ngo) return null;
+  const formatDate = (d) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>🏢 NGO Details — Admin Review</h2>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        {/* Header: photo + name + status */}
+        <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start", marginBottom: "1.25rem", flexWrap: "wrap" }}>
+          {ngo.photo ? (
+            <img src={ngo.photo.startsWith("http") ? ngo.photo : `http://localhost:5000${ngo.photo}`} alt={ngo.name}
+              style={{ width: 80, height: 80, borderRadius: 12, objectFit: "cover", flexShrink: 0, border: "2px solid var(--border)" }} />
+          ) : (
+            <div className="ngo-avatar lg" style={{ width: 80, height: 80, fontSize: "2rem", borderRadius: 12, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {ngo.name?.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div style={{ flex: 1 }}>
+            <h3 style={{ margin: "0 0 0.3rem", fontSize: "1.2rem" }}>{ngo.name}</h3>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
+              {ngo.verified
+                ? <span className="badge badge-green">✅ Verified</span>
+                : ngo.rejected
+                ? <span className="badge badge-red">❌ Rejected</span>
+                : <span className="badge badge-amber">⏳ Pending Verification</span>}
+              {ngo.category && <span className="badge badge-blue" style={{ textTransform: "capitalize" }}>🏷️ {ngo.category}</span>}
+            </div>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", lineHeight: 1.6, margin: 0 }}>
+              {ngo.description || "No description provided."}
+            </p>
+          </div>
+        </div>
+
+        {/* Info grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1.25rem" }}>
+          {[
+            { label: "📍 Location", value: ngo.location || "—" },
+            { label: "📞 Contact", value: ngo.contact || "—" },
+            { label: "🏷️ Category", value: ngo.category || "other", caps: true },
+            { label: "📅 Registered On", value: ngo.createdAt ? formatDate(ngo.createdAt) : "—" },
+          ].map(item => (
+            <div key={item.label} style={{ background: "var(--bg3)", borderRadius: 10, padding: "0.75rem 1rem", border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-dim)", marginBottom: "0.3rem" }}>{item.label}</div>
+              <strong style={{ fontSize: "0.9rem", textTransform: item.caps ? "capitalize" : "none" }}>{item.value}</strong>
+            </div>
+          ))}
+          <div style={{ background: "var(--bg3)", borderRadius: 10, padding: "0.75rem 1rem", border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-dim)", marginBottom: "0.3rem" }}>👤 Registered By</div>
+            <strong style={{ fontSize: "0.9rem" }}>{ngo.createdBy?.name || "—"}</strong>
+            {ngo.createdBy?.email && <small style={{ display: "block", color: "var(--text-muted)", marginTop: "0.1rem" }}>{ngo.createdBy.email}</small>}
+          </div>
+          <div style={{ background: "var(--bg3)", borderRadius: 10, padding: "0.75rem 1rem", border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: "0.75rem", color: "var(--text-dim)", marginBottom: "0.3rem" }}>🌐 Website</div>
+            {ngo.website ? (
+              <a href={ngo.website.startsWith("http") ? ngo.website : `https://${ngo.website}`}
+                target="_blank" rel="noopener noreferrer"
+                style={{ color: "var(--primary)", fontSize: "0.9rem", wordBreak: "break-all" }}>
+                {ngo.website.replace(/^https?:\/\//, "")}
+              </a>
+            ) : <strong style={{ fontSize: "0.9rem" }}>—</strong>}
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: "flex", gap: "0.75rem", paddingTop: "1rem", borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
+          {!ngo.verified && (
+            <button className="btn-success" style={{ flex: 1, minWidth: 130 }}
+              onClick={() => { onVerify(ngo._id); onClose(); }}>
+              ✅ Verify NGO
+            </button>
+          )}
+          {!ngo.rejected && (
+            <button className="btn-danger-xs" style={{ flex: 1, minWidth: 130, padding: "0.7rem 1rem", fontSize: "0.875rem" }}
+              onClick={() => { onReject(ngo._id); onClose(); }}>
+              ❌ {ngo.verified ? "Revoke Verification" : "Reject NGO"}
+            </button>
+          )}
+          {ngo.rejected && (
+            <button className="btn-success" style={{ flex: 1, minWidth: 130 }}
+              onClick={() => { onVerify(ngo._id); onClose(); }}>
+              🔄 Re-verify NGO
+            </button>
+          )}
+          <button className="btn-sm" style={{ minWidth: 90 }} onClick={onClose}>Close</button>
+        </div>
       </div>
     </div>
   );
@@ -88,7 +220,11 @@ const AdminDashboard = ({ user }) => {
   const [activeTab, setActiveTab] = useState("overview");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [activityModal, setActivityModal] = useState(null); // { id, name }
+  const [activityModal, setActivityModal] = useState(null);
+  const [ngoDetailModal, setNgoDetailModal] = useState(null);
+  const [confirm, setConfirm] = useState(null); // { type, id, name }
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [chartData, setChartData] = useState(null);
 
   const flash = (msg, isError = false) => {
     if (isError) setError(msg); else setMessage(msg);
@@ -96,10 +232,20 @@ const AdminDashboard = ({ user }) => {
   };
 
   useEffect(() => {
-    api.get("/admin/stats").then(r => setStats(r.data)).catch(() => {});
-    api.get("/ngo/admin/all").then(r => setNgos(r.data.ngos)).catch(() => {});
-    api.get("/admin/users").then(r => setUsers(r.data.users)).catch(() => {});
-    api.get("/event/all").then(r => setEvents(r.data.events)).catch(() => {});
+    // Use allSettled so one failed request doesn't break the whole dashboard
+    Promise.allSettled([
+      api.get("/admin/stats"),
+      api.get("/ngo/admin/all"),
+      api.get("/admin/users"),
+      api.get("/event/all"),
+      api.get("/admin/chart-data"),
+    ]).then(([statsRes, ngosRes, usersRes, eventsRes, chartRes]) => {
+      if (statsRes.status === "fulfilled")   setStats(statsRes.value.data);
+      if (ngosRes.status === "fulfilled")    setNgos(ngosRes.value.data.ngos || []);
+      if (usersRes.status === "fulfilled")   setUsers(usersRes.value.data.users || []);
+      if (eventsRes.status === "fulfilled")  setEvents(eventsRes.value.data.events || []);
+      if (chartRes.status === "fulfilled")   setChartData(chartRes.value.data);
+    }).finally(() => setStatsLoading(false));
   }, []);
 
   const handleVerify = async (ngoId) => {
@@ -119,21 +265,21 @@ const AdminDashboard = ({ user }) => {
   };
 
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm("Delete this user? This action cannot be undone.")) return;
     try {
       await api.delete(`/admin/users/${userId}`);
       flash("User deleted");
       setUsers(prev => prev.filter(u => u._id !== userId));
     } catch (err) { flash(err.response?.data?.message || "Error", true); }
+    setConfirm(null);
   };
 
   const handleCancelEvent = async (eventId) => {
-    if (!window.confirm("Cancel this event?")) return;
     try {
       await api.delete(`/event/${eventId}`);
       flash("Event cancelled");
       setEvents(prev => prev.filter(e => e._id !== eventId));
     } catch (err) { flash(err.response?.data?.message || "Error", true); }
+    setConfirm(null);
   };
 
   const formatDate = (d) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
@@ -148,6 +294,27 @@ const AdminDashboard = ({ user }) => {
         />
       )}
 
+      {ngoDetailModal && (
+        <NGODetailModal
+          ngo={ngoDetailModal}
+          onClose={() => setNgoDetailModal(null)}
+          onVerify={handleVerify}
+          onReject={handleReject}
+        />
+      )}
+
+      <ConfirmModal
+        isOpen={!!confirm}
+        title={confirm?.type === "user" ? "Delete User?" : "Cancel Event?"}
+        message={confirm?.type === "user"
+          ? `Are you sure you want to remove "${confirm?.name}"? This cannot be undone.`
+          : `Cancel event "${confirm?.name}"? Volunteer applications will also be lost.`}
+        confirmText={confirm?.type === "user" ? "Delete" : "Cancel Event"}
+        onConfirm={() => confirm?.type === "user" ? handleDeleteUser(confirm.id) : handleCancelEvent(confirm.id)}
+        onCancel={() => setConfirm(null)}
+        danger
+      />
+
       <div className="dashboard-header">
         <div>
           <h1>⚙️ Admin Dashboard</h1>
@@ -160,7 +327,13 @@ const AdminDashboard = ({ user }) => {
       {error && <div className="alert error">⚠️ {error}</div>}
 
       {/* Stats Cards */}
-      {stats && (
+      {statsLoading ? (
+        <div className="stats-grid">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="stat-card skeleton-stat" />
+          ))}
+        </div>
+      ) : stats && (
         <div className="stats-grid">
           <div className="stat-card"><span className="stat-card-num">{stats.totalUsers}</span><span>Total Users</span></div>
           <div className="stat-card green"><span className="stat-card-num">{stats.verifiedNGOs}</span><span>Verified NGOs</span></div>
@@ -173,13 +346,17 @@ const AdminDashboard = ({ user }) => {
 
       {/* Tabs */}
       <div className="tabs" style={{ marginTop: "2rem" }}>
-        {["overview", "ngos", "events", "users"].map(tab => (
+        {["overview", "charts", "ngos", "events", "users"].map(tab => (
           <button
             key={tab}
             className={`tab-btn ${activeTab === tab ? "tab-active" : ""}`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab === "overview" ? "📊 Overview" : tab === "ngos" ? "🏢 NGOs" : tab === "events" ? "📅 Events" : "👥 Users"}
+            {tab === "overview" ? "📊 Overview"
+              : tab === "charts" ? "📈 Charts"
+              : tab === "ngos" ? "🏢 NGOs"
+              : tab === "events" ? "📅 Events"
+              : "👥 Users"}
           </button>
         ))}
       </div>
@@ -206,7 +383,7 @@ const AdminDashboard = ({ user }) => {
             </div>
             <div className="overview-card">
               <h3>📅 Recent Events</h3>
-              {events.slice(0, 4).map(ev => (
+              {events.length === 0 ? <p className="empty">No events yet</p> : events.slice(0, 4).map(ev => (
                 <div key={ev._id} className="mini-row">
                   <div>
                     <strong>{ev.title}</strong>
@@ -232,10 +409,59 @@ const AdminDashboard = ({ user }) => {
         </div>
       )}
 
+      {/* ── Charts Tab ── */}
+      {activeTab === "charts" && (
+        <div className="tab-content">
+          <h2 className="tab-section-title">📈 Platform Analytics</h2>
+          {!chartData ? (
+            <div className="loading">
+              <div className="spinner-ring" style={{ margin: "0 auto 1rem" }} />
+              Loading charts...
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
+              {/* Donation Trend — full width */}
+              <div className="overview-card" style={{ gridColumn: "1 / -1" }}>
+                <h3 style={{ marginBottom: "1rem", fontSize: "1rem", fontWeight: 700 }}>📦 Monthly Donations (Last 6 Months)</h3>
+                <DonationTrendChart
+                  labels={chartData.donationTrend.labels}
+                  counts={chartData.donationTrend.counts}
+                  amounts={chartData.donationTrend.amounts}
+                />
+              </div>
+              {/* Category Doughnut */}
+              <div className="overview-card">
+                <h3 style={{ marginBottom: "1rem", fontSize: "1rem", fontWeight: 700 }}>🏷️ NGO Categories</h3>
+                {chartData.categoryData.labels.length === 0 ? (
+                  <p className="empty">No NGOs registered yet</p>
+                ) : (
+                  <NGOCategoryChart
+                    labels={chartData.categoryData.labels}
+                    counts={chartData.categoryData.counts}
+                  />
+                )}
+              </div>
+              {/* NGO Status Doughnut */}
+              <div className="overview-card">
+                <h3 style={{ marginBottom: "1rem", fontSize: "1rem", fontWeight: 700 }}>🏢 NGO Verification Status</h3>
+                <NGOStatusChart
+                  verified={chartData.ngoStatus.verified}
+                  pending={chartData.ngoStatus.pending}
+                  rejected={chartData.ngoStatus.rejected}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── NGO Management ── */}
       {activeTab === "ngos" && (
         <div className="tab-content">
           <h2 className="tab-section-title">🏢 All Registered NGOs ({ngos.length})</h2>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", marginBottom: "1rem" }}>
+            Click <strong>"View Details"</strong> to review all NGO information before verifying.
+          </p>
           {ngos.length === 0 ? (
             <p className="empty">No NGOs registered yet.</p>
           ) : (
@@ -244,8 +470,10 @@ const AdminDashboard = ({ user }) => {
                 <thead>
                   <tr>
                     <th>NGO Name</th>
+                    <th>Category</th>
                     <th>Registered By</th>
                     <th>Location</th>
+                    <th>Contact</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
@@ -254,10 +482,30 @@ const AdminDashboard = ({ user }) => {
                   {ngos.map(ngo => (
                     <tr key={ngo._id}>
                       <td>
-                        <Link to={`/ngos/${ngo._id}`} className="table-link">{ngo.name}</Link>
+                        <div>
+                          <Link to={`/ngos/${ngo._id}`} className="table-link">{ngo.name}</Link>
+                          {ngo.description && (
+                            <div style={{ color: "var(--text-dim)", fontSize: "0.73rem", marginTop: "0.15rem", maxWidth: 180 }}>
+                              {ngo.description.slice(0, 55)}{ngo.description.length > 55 ? "..." : ""}
+                            </div>
+                          )}
+                        </div>
                       </td>
-                      <td>{ngo.createdBy?.name || "—"}</td>
+                      <td>
+                        <span className="badge badge-blue" style={{ textTransform: "capitalize", fontSize: "0.7rem" }}>
+                          {ngo.category || "other"}
+                        </span>
+                      </td>
+                      <td>
+                        <div>
+                          <strong>{ngo.createdBy?.name || "—"}</strong>
+                          {ngo.createdBy?.email && (
+                            <small style={{ display: "block", color: "var(--text-dim)" }}>{ngo.createdBy.email}</small>
+                          )}
+                        </div>
+                      </td>
                       <td>{ngo.location || "—"}</td>
+                      <td>{ngo.contact || "—"}</td>
                       <td>
                         {ngo.verified
                           ? <span className="badge badge-green">✅ Verified</span>
@@ -266,6 +514,9 @@ const AdminDashboard = ({ user }) => {
                           : <span className="badge badge-amber">⏳ Pending</span>}
                       </td>
                       <td className="table-actions">
+                        <button className="btn-approve" onClick={() => setNgoDetailModal(ngo)}>
+                          View Details
+                        </button>
                         {!ngo.verified && !ngo.rejected && (
                           <button className="btn-success btn-xs" onClick={() => handleVerify(ngo._id)}>Verify</button>
                         )}
@@ -307,14 +558,14 @@ const AdminDashboard = ({ user }) => {
                 <tbody>
                   {events.map(ev => (
                     <tr key={ev._id}>
-                      <td>
-                        <Link to={`/events/${ev._id}`} className="table-link">{ev.title}</Link>
-                      </td>
+                      <td><Link to={`/events/${ev._id}`} className="table-link">{ev.title}</Link></td>
                       <td>{ev.ngoId?.name || "—"}</td>
                       <td>{ev.date ? formatDate(ev.date) : "TBD"}</td>
                       <td className="table-actions">
                         <Link to={`/events/${ev._id}`} className="btn-approve" style={{ textDecoration: "none" }}>View</Link>
-                        <button className="btn-danger-xs" onClick={() => handleCancelEvent(ev._id)}>Cancel</button>
+                        <button className="btn-danger-xs" onClick={() => setConfirm({ type: "event", id: ev._id, name: ev.title })}>
+                          Cancel
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -355,14 +606,11 @@ const AdminDashboard = ({ user }) => {
                       </td>
                       <td>{formatDate(u.createdAt)}</td>
                       <td className="table-actions">
-                        <button
-                          className="btn-approve"
-                          onClick={() => setActivityModal({ id: u._id, name: u.name })}
-                        >
+                        <button className="btn-approve" onClick={() => setActivityModal({ id: u._id, name: u.name })}>
                           Activity
                         </button>
                         {u.role !== "admin" && (
-                          <button className="btn-danger-xs" onClick={() => handleDeleteUser(u._id)}>
+                          <button className="btn-danger-xs" onClick={() => setConfirm({ type: "user", id: u._id, name: u.name })}>
                             Remove
                           </button>
                         )}
@@ -384,14 +632,18 @@ const NGODashboard = ({ user }) => {
   const [myNGO, setMyNGO] = useState(null);
   const [events, setEvents] = useState([]);
   const [ngoStats, setNgoStats] = useState(null);
+  const [volunteers, setVolunteers] = useState({}); // eventId -> volunteers[]
+  const [expandedEvent, setExpandedEvent] = useState(null); // eventId whose volunteers are shown
   const [activeTab, setActiveTab] = useState("profile");
-  const [ngoForm, setNgoForm] = useState({ name: "", description: "", location: "" });
-  const [createEventForm, setCreateEventForm] = useState({ title: "", description: "", date: "" });
+  const [ngoForm, setNgoForm] = useState({ name: "", description: "", location: "", category: "other", contact: "", website: "" });
+  const [createEventForm, setCreateEventForm] = useState({ title: "", description: "", date: "", location: "" });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [confirm, setConfirm] = useState(null); // { id, name }
+  const [submitting, setSubmitting] = useState(false);
 
   const flash = (msg, isError = false) => {
     if (isError) setError(msg); else setMessage(msg);
@@ -400,67 +652,135 @@ const NGODashboard = ({ user }) => {
 
   useEffect(() => {
     api.get("/ngo/my")
-      .then(r => {
+      .then(async r => {
         const ngo = r.data.ngo;
         setMyNGO(ngo);
-        setNgoForm({ name: ngo.name, description: ngo.description || "", location: ngo.location || "" });
-        return Promise.all([
+        setNgoForm({
+          name: ngo.name,
+          description: ngo.description || "",
+          location: ngo.location || "",
+          category: ngo.category || "other",
+          contact: ngo.contact || "",
+          website: ngo.website || "",
+        });
+        // Fetch events and stats independently so one failure doesn't break both
+        const [evRes, statsRes] = await Promise.allSettled([
           api.get(`/event/ngo/${ngo._id}`),
           api.get(`/ngo/${ngo._id}/stats`),
         ]);
+        if (evRes.status === "fulfilled")    setEvents(evRes.value.data.events || []);
+        if (statsRes.status === "fulfilled") setNgoStats(statsRes.value.data);
       })
-      .then(([evRes, statsRes]) => {
-        setEvents(evRes.data.events || []);
-        setNgoStats(statsRes.data);
-      })
-      .catch(() => {})
+      .catch(() => {/* No NGO registered — show registration form */})
       .finally(() => setLoading(false));
   }, []);
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     if (!myNGO) return;
+    setSubmitting(true);
     try {
       const fd = new FormData();
       fd.append("name", ngoForm.name);
       fd.append("description", ngoForm.description);
       fd.append("location", ngoForm.location);
+      fd.append("category", ngoForm.category);
+      fd.append("contact", ngoForm.contact);
+      fd.append("website", ngoForm.website);
       if (photoFile) fd.append("photo", photoFile);
       const { data } = await api.put(`/ngo/profile/${myNGO._id}`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setMyNGO(data.ngo);
+      setPhotoFile(null);
       flash("Profile updated ✅");
     } catch (err) { flash(err.response?.data?.message || "Error", true); }
+    finally { setSubmitting(false); }
   };
 
   const handleRegisterNGO = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
-      const { data } = await api.post("/ngo/register", ngoForm);
+      const fd = new FormData();
+      fd.append("name", ngoForm.name);
+      fd.append("description", ngoForm.description);
+      fd.append("location", ngoForm.location);
+      fd.append("category", ngoForm.category);
+      fd.append("contact", ngoForm.contact);
+      fd.append("website", ngoForm.website);
+      if (photoFile) fd.append("photo", photoFile);
+      const { data } = await api.post("/ngo/register", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       setMyNGO(data.ngo);
+      setPhotoFile(null);
+      setPhotoPreview(null);
       flash("NGO registered! Awaiting admin verification 🎉");
     } catch (err) { flash(err.response?.data?.message || "Error", true); }
+    finally { setSubmitting(false); }
   };
 
   const handleCreateEvent = async (e) => {
     e.preventDefault();
     if (!myNGO) return flash("Register your NGO first", true);
     if (!myNGO.verified) return flash("Your NGO must be verified before creating events", true);
+    setSubmitting(true);
     try {
       const { data } = await api.post("/event/create", { ...createEventForm, ngoId: myNGO._id });
       flash("Event created ✅");
       setEvents(prev => [...prev, data.event]);
-      setCreateEventForm({ title: "", description: "", date: "" });
+      setCreateEventForm({ title: "", description: "", date: "", location: "" });
+      setActiveTab("events");
     } catch (err) { flash(err.response?.data?.message || "Error", true); }
+    finally { setSubmitting(false); }
   };
 
   const handleCancelEvent = async (eventId) => {
-    if (!window.confirm("Cancel this event?")) return;
     try {
       await api.delete(`/event/${eventId}`);
       flash("Event cancelled");
       setEvents(prev => prev.filter(e => e._id !== eventId));
+    } catch (err) { flash(err.response?.data?.message || "Error", true); }
+    setConfirm(null);
+  };
+
+  const loadVolunteers = async (eventId) => {
+    if (volunteers[eventId]) return; // already loaded
+    try {
+      const { data } = await api.get(`/volunteer/event/${eventId}`);
+      setVolunteers(prev => ({ ...prev, [eventId]: data.volunteers || [] }));
+    } catch { /* silent */ }
+  };
+
+  const toggleVolunteers = (eventId) => {
+    if (expandedEvent === eventId) {
+      setExpandedEvent(null);
+    } else {
+      setExpandedEvent(eventId);
+      loadVolunteers(eventId);
+    }
+  };
+
+  const handleRejectVolunteer = async (appId, eventId) => {
+    try {
+      await api.put(`/volunteer/reject/${appId}`);
+      setVolunteers(prev => ({
+        ...prev,
+        [eventId]: (prev[eventId] || []).map(v => v._id === appId ? { ...v, status: "rejected" } : v),
+      }));
+      flash("Application rejected");
+    } catch (err) { flash(err.response?.data?.message || "Error", true); }
+  };
+
+  const handleApproveVolunteer = async (appId, eventId) => {
+    try {
+      await api.put(`/volunteer/approve/${appId}`);
+      setVolunteers(prev => ({
+        ...prev,
+        [eventId]: (prev[eventId] || []).map(v => v._id === appId ? { ...v, status: "approved" } : v),
+      }));
+      flash("Volunteer approved ✅");
     } catch (err) { flash(err.response?.data?.message || "Error", true); }
   };
 
@@ -468,6 +788,16 @@ const NGODashboard = ({ user }) => {
 
   return (
     <div>
+      <ConfirmModal
+        isOpen={!!confirm}
+        title="Cancel Event?"
+        message={`Are you sure you want to cancel "${confirm?.name}"? This will remove all associated volunteer applications.`}
+        confirmText="Yes, Cancel Event"
+        onConfirm={() => handleCancelEvent(confirm.id)}
+        onCancel={() => setConfirm(null)}
+        danger
+      />
+
       <div className="dashboard-header">
         <div>
           <h1>🏢 NGO Dashboard</h1>
@@ -494,45 +824,117 @@ const NGODashboard = ({ user }) => {
 
       {/* Tabs */}
       <div className="tabs" style={{ marginTop: "2rem" }}>
-        <button className={`tab-btn ${activeTab === "profile" ? "tab-active" : ""}`} onClick={() => setActiveTab("profile")}>
-          👤 Profile
-        </button>
+        <button className={`tab-btn ${activeTab === "profile" ? "tab-active" : ""}`} onClick={() => setActiveTab("profile")}>👤 Profile</button>
         <button className={`tab-btn ${activeTab === "events" ? "tab-active" : ""}`} onClick={() => setActiveTab("events")}>
           📅 Events ({events.length})
         </button>
-        <button className={`tab-btn ${activeTab === "create" ? "tab-active" : ""}`} onClick={() => setActiveTab("create")}>
-          ➕ Create Event
-        </button>
+        <button className={`tab-btn ${activeTab === "create" ? "tab-active" : ""}`} onClick={() => setActiveTab("create")}>➕ Create Event</button>
       </div>
 
       {loading ? (
-        <div className="loading">Loading...</div>
+        <div className="loading">
+          <div className="spinner-ring" style={{ margin: "0 auto 1rem" }} />
+          Loading your NGO...
+        </div>
       ) : (
         <>
           {/* ── Profile Tab ── */}
           {activeTab === "profile" && (
             <div className="tab-content">
               {!myNGO ? (
-                <div className="donate-card">
+              <div className="donate-card">
                   <h2>📝 Register Your NGO</h2>
-                  <p className="section-sub">Fill in the details to register your NGO. An admin will verify it.</p>
+                  <p className="section-sub">Fill in your NGO details. An admin will review and verify your registration.</p>
                   <form onSubmit={handleRegisterNGO} className="donate-form">
-                    <div className="form-group">
-                      <label>NGO Name *</label>
-                      <input placeholder="e.g., Green Hands Foundation" value={ngoForm.name}
-                        onChange={e => setNgoForm(f => ({ ...f, name: e.target.value }))} required />
+
+                    {/* Logo Upload at top */}
+                    <div className="form-group" style={{ textAlign: "center" }}>
+                      <label>NGO Logo / Photo (optional)</label>
+                      <div className="image-upload-area" onClick={() => document.getElementById("reg-photo-input").click()}
+                        style={{ maxWidth: 260, margin: "0 auto" }}>
+                        {photoPreview ? (
+                          <img src={photoPreview} alt="Preview" style={{ maxHeight: 130, borderRadius: 8, maxWidth: "100%" }} />
+                        ) : (
+                          <div className="upload-placeholder">
+                            <span>🏢</span>
+                            <p>Click to upload logo</p>
+                            <small>JPG, PNG, WEBP (max 5MB)</small>
+                          </div>
+                        )}
+                      </div>
+                      <input id="reg-photo-input" type="file" accept="image/*" style={{ display: "none" }}
+                        onChange={e => {
+                          const f = e.target.files[0];
+                          if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); }
+                        }} />
+                      {photoPreview && (
+                        <button type="button" className="btn-danger-sm" style={{ marginTop: "0.4rem" }}
+                          onClick={() => { setPhotoPreview(null); setPhotoFile(null); }}>
+                          ✕ Remove
+                        </button>
+                      )}
                     </div>
+
+                    {/* Row 1: Name + Category */}
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>NGO Name *</label>
+                        <input id="reg-ngo-name" placeholder="e.g., Green Hands Foundation"
+                          value={ngoForm.name}
+                          onChange={e => setNgoForm(f => ({ ...f, name: e.target.value }))} required />
+                      </div>
+                      <div className="form-group">
+                        <label>Category *</label>
+                        <select id="reg-category" value={ngoForm.category}
+                          onChange={e => setNgoForm(f => ({ ...f, category: e.target.value }))}>
+                          <option value="education">📚 Education</option>
+                          <option value="health">🏥 Health</option>
+                          <option value="environment">🌿 Environment</option>
+                          <option value="food">🍱 Food</option>
+                          <option value="animal">🐾 Animal Welfare</option>
+                          <option value="disaster">🆘 Disaster Relief</option>
+                          <option value="women">👩 Women Empowerment</option>
+                          <option value="youth">👦 Youth Development</option>
+                          <option value="other">🌐 Other</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Row 2: Location + Contact */}
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Location</label>
+                        <input id="reg-location" placeholder="City, State"
+                          value={ngoForm.location}
+                          onChange={e => setNgoForm(f => ({ ...f, location: e.target.value }))} />
+                      </div>
+                      <div className="form-group">
+                        <label>Contact (Phone / Email)</label>
+                        <input id="reg-contact" placeholder="e.g., +91 98765 43210"
+                          value={ngoForm.contact}
+                          onChange={e => setNgoForm(f => ({ ...f, contact: e.target.value }))} />
+                      </div>
+                    </div>
+
+                    {/* Website */}
+                    <div className="form-group">
+                      <label>Website (optional)</label>
+                      <input id="reg-website" placeholder="https://yourngodomain.org"
+                        value={ngoForm.website}
+                        onChange={e => setNgoForm(f => ({ ...f, website: e.target.value }))} />
+                    </div>
+
+                    {/* Description */}
                     <div className="form-group">
                       <label>Description</label>
-                      <textarea placeholder="What does your NGO do?" value={ngoForm.description}
-                        onChange={e => setNgoForm(f => ({ ...f, description: e.target.value }))} rows={3} />
+                      <textarea id="reg-description" placeholder="What does your NGO do? What is your mission?"
+                        value={ngoForm.description}
+                        onChange={e => setNgoForm(f => ({ ...f, description: e.target.value }))} rows={4} />
                     </div>
-                    <div className="form-group">
-                      <label>Location</label>
-                      <input placeholder="City, State" value={ngoForm.location}
-                        onChange={e => setNgoForm(f => ({ ...f, location: e.target.value }))} />
-                    </div>
-                    <button type="submit" className="btn-primary">Register NGO</button>
+
+                    <button type="submit" className="btn-primary" disabled={submitting}>
+                      {submitting ? <span className="btn-loading"><span className="btn-spinner" />Registering...</span> : "🏢 Register NGO"}
+                    </button>
                   </form>
                 </div>
               ) : (
@@ -540,38 +942,71 @@ const NGODashboard = ({ user }) => {
                   <div className="ngo-profile-top">
                     <div className="ngo-profile-photo">
                       {photoPreview || myNGO.photo
-                        ? <img src={photoPreview || `http://localhost:5000${myNGO.photo}`} alt="NGO" />
+                        ? <img src={photoPreview || (myNGO.photo?.startsWith("http") ? myNGO.photo : `http://localhost:5000${myNGO.photo}`)} alt="NGO" />
                         : <div className="ngo-avatar lg">{myNGO.name.charAt(0)}</div>}
                     </div>
                     <div>
                       <h2>{myNGO.name}</h2>
                       {myNGO.verified
                         ? <span className="badge badge-green">✅ Verified</span>
-                        : <span className="badge badge-amber">⏳ Awaiting Verification</span>}
+                        : myNGO.rejected
+                          ? <span className="badge badge-red">❌ Rejected — Contact admin</span>
+                          : <span className="badge badge-amber">⏳ Awaiting Verification</span>}
                       {myNGO.location && <p className="location-tag" style={{ marginTop: "0.4rem" }}>📍 {myNGO.location}</p>}
                       {myNGO.description && <p className="detail-desc" style={{ marginTop: "0.4rem", fontSize: "0.875rem" }}>{myNGO.description}</p>}
                     </div>
                   </div>
                   <h3 style={{ marginBottom: "1rem", marginTop: "1.5rem", fontSize: "1rem", fontWeight: 700 }}>✏️ Update Profile</h3>
                   <form onSubmit={handleUpdateProfile} className="donate-form">
+                    {/* Row 1: Name + Category */}
                     <div className="form-row">
                       <div className="form-group">
                         <label>NGO Name</label>
                         <input value={ngoForm.name} onChange={e => setNgoForm(f => ({ ...f, name: e.target.value }))} />
                       </div>
                       <div className="form-group">
+                        <label>Category</label>
+                        <select value={ngoForm.category} onChange={e => setNgoForm(f => ({ ...f, category: e.target.value }))}>
+                          <option value="education">📚 Education</option>
+                          <option value="health">🏥 Health</option>
+                          <option value="environment">🌿 Environment</option>
+                          <option value="food">🍱 Food</option>
+                          <option value="animal">🐾 Animal Welfare</option>
+                          <option value="disaster">🆘 Disaster Relief</option>
+                          <option value="women">👩 Women Empowerment</option>
+                          <option value="youth">👦 Youth Development</option>
+                          <option value="other">🌐 Other</option>
+                        </select>
+                      </div>
+                    </div>
+                    {/* Row 2: Location + Contact */}
+                    <div className="form-row">
+                      <div className="form-group">
                         <label>Location</label>
                         <input placeholder="City, State" value={ngoForm.location}
                           onChange={e => setNgoForm(f => ({ ...f, location: e.target.value }))} />
                       </div>
+                      <div className="form-group">
+                        <label>Contact (Phone / Email)</label>
+                        <input placeholder="+91 98765 43210" value={ngoForm.contact}
+                          onChange={e => setNgoForm(f => ({ ...f, contact: e.target.value }))} />
+                      </div>
                     </div>
+                    {/* Website */}
+                    <div className="form-group">
+                      <label>Website (optional)</label>
+                      <input placeholder="https://yourngodomain.org" value={ngoForm.website}
+                        onChange={e => setNgoForm(f => ({ ...f, website: e.target.value }))} />
+                    </div>
+                    {/* Description */}
                     <div className="form-group">
                       <label>Description</label>
                       <textarea value={ngoForm.description}
                         onChange={e => setNgoForm(f => ({ ...f, description: e.target.value }))} rows={3} />
                     </div>
+                    {/* Photo Upload */}
                     <div className="form-group">
-                      <label>Upload NGO Photo</label>
+                      <label>Update NGO Logo / Photo</label>
                       <div className="image-upload-area" onClick={() => document.getElementById("ngo-photo-input").click()}>
                         {photoPreview ? (
                           <img src={photoPreview} alt="Preview" style={{ maxHeight: 150, borderRadius: 8, maxWidth: "100%" }} />
@@ -589,7 +1024,9 @@ const NGODashboard = ({ user }) => {
                           if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); }
                         }} />
                     </div>
-                    <button type="submit" className="btn-primary">Update Profile</button>
+                    <button type="submit" className="btn-primary" disabled={submitting}>
+                      {submitting ? <span className="btn-loading"><span className="btn-spinner" />Updating...</span> : "Update Profile"}
+                    </button>
                   </form>
                 </div>
               )}
@@ -610,31 +1047,84 @@ const NGODashboard = ({ user }) => {
                   </button>
                 </div>
               ) : (
-                <div className="admin-table-wrap">
-                  <table className="admin-table">
-                    <thead>
-                      <tr><th>Event Title</th><th>Date</th><th>Description</th><th>Actions</th></tr>
-                    </thead>
-                    <tbody>
-                      {events.map(ev => (
-                        <tr key={ev._id}>
-                          <td>
-                            <Link to={`/events/${ev._id}`} className="table-link">{ev.title}</Link>
-                          </td>
-                          <td>{ev.date ? formatDate(ev.date) : "TBD"}</td>
-                          <td>{ev.description ? ev.description.slice(0, 60) + "..." : "—"}</td>
-                          <td className="table-actions">
-                            <Link to={`/events/${ev._id}`} className="btn-approve" style={{ textDecoration: "none" }}>View</Link>
-                            <button className="btn-danger-xs" onClick={() => handleCancelEvent(ev._id)}>Cancel</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <>
+                  {/* Volunteer Chart — only show when some volunteers data is loaded */}
+                  {events.length > 0 && Object.keys(volunteers).length > 0 && (
+                    <div className="overview-card" style={{ marginBottom: "1.5rem" }}>
+                      <h3 style={{ marginBottom: "1rem", fontSize: "1rem", fontWeight: 700 }}>📊 Volunteers Per Event</h3>
+                      <VolunteersPerEventChart events={events} volunteersMap={volunteers} />
+                    </div>
+                  )}
+                <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                  {events.map(ev => (
+                    <div key={ev._id} className="event-manage-card">
+                      <div className="event-manage-header">
+                        <div>
+                          <div className="event-date">{ev.date ? formatDate(ev.date) : "Date TBD"}</div>
+                          <Link to={`/events/${ev._id}`} className="event-manage-title">{ev.title}</Link>
+                          {ev.description && <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", marginTop: "0.25rem" }}>{ev.description.slice(0, 120)}{ev.description.length > 120 ? "..." : ""}</p>}
+                        </div>
+                        <div className="table-actions">
+                          <button
+                            className={`btn-approve ${expandedEvent === ev._id ? "active" : ""}`}
+                            onClick={() => toggleVolunteers(ev._id)}
+                          >
+                            👥 Volunteers {expandedEvent === ev._id ? "▲" : "▼"}
+                          </button>
+                          <Link to={`/events/${ev._id}`} className="btn-approve" style={{ textDecoration: "none" }}>View</Link>
+                          <button className="btn-danger-xs" onClick={() => setConfirm({ id: ev._id, name: ev.title })}>Cancel</button>
+                        </div>
+                      </div>
+
+                      {/* ── Inline Volunteer Panel (FIXED BUG) ── */}
+                      {expandedEvent === ev._id && (
+                        <div style={{ marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+                          <h4 style={{ marginBottom: "0.75rem", fontSize: "0.9rem", fontWeight: 700, color: "var(--text-muted)" }}>
+                            👥 Volunteer Applications
+                          </h4>
+                          {!volunteers[ev._id] ? (
+                            <div style={{ padding: "1rem", textAlign: "center", color: "var(--text-dim)" }}>
+                              <div className="spinner-ring" style={{ margin: "0 auto 0.5rem" }} />
+                              Loading...
+                            </div>
+                          ) : volunteers[ev._id].length === 0 ? (
+                            <p className="empty" style={{ margin: 0 }}>No applications yet for this event.</p>
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                              {volunteers[ev._id].map(v => (
+                                <div key={v._id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.6rem 0.9rem", background: "var(--bg3)", borderRadius: "8px", border: "1px solid var(--border)", fontSize: "0.875rem" }}>
+                                  <div className="nav-avatar" style={{ width: 32, height: 32, fontSize: "0.85rem", flexShrink: 0 }}>
+                                    {v.userId?.name?.charAt(0)?.toUpperCase() || "?"}
+                                  </div>
+                                  <div style={{ flex: 1 }}>
+                                    <strong style={{ color: "var(--text)" }}>{v.userId?.name || "Unknown"}</strong>
+                                    <small style={{ display: "block", color: "var(--text-dim)" }}>{v.userId?.email}</small>
+                                  </div>
+                                  <span className={`badge ${v.status === "approved" ? "badge-green" : v.status === "rejected" ? "badge-red" : "badge-amber"}`}>
+                                    {v.status === "approved" ? "✅ Approved" : v.status === "rejected" ? "❌ Rejected" : "⏳ Pending"}
+                                  </span>
+                                  <div style={{ display: "flex", gap: "0.4rem" }}>
+                                    {v.status !== "approved" && (
+                                      <button className="btn-success btn-xs" onClick={() => handleApproveVolunteer(v._id, ev._id)}>Approve</button>
+                                    )}
+                                    {v.status !== "rejected" && (
+                                      <button className="btn-danger-xs" onClick={() => handleRejectVolunteer(v._id, ev._id)}>Reject</button>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
+                </>
               )}
             </div>
           )}
+
 
           {/* ── Create Event Tab ── */}
           {activeTab === "create" && (
@@ -660,14 +1150,25 @@ const NGODashboard = ({ user }) => {
                       value={createEventForm.description}
                       onChange={e => setCreateEventForm(f => ({ ...f, description: e.target.value }))} rows={4} />
                   </div>
-                  <div className="form-group">
-                    <label>Event Date</label>
-                    <input type="date" value={createEventForm.date}
-                      onChange={e => setCreateEventForm(f => ({ ...f, date: e.target.value }))} />
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Event Date</label>
+                      <input type="date" value={createEventForm.date}
+                        onChange={e => setCreateEventForm(f => ({ ...f, date: e.target.value }))} />
+                    </div>
+                    <div className="form-group">
+                      <label>Event Location</label>
+                      <input placeholder="e.g., Mumbai, Maharashtra" value={createEventForm.location}
+                        onChange={e => setCreateEventForm(f => ({ ...f, location: e.target.value }))} />
+                    </div>
                   </div>
                   <button type="submit" className="btn-primary"
-                    disabled={!myNGO || !myNGO.verified}>
-                    {!myNGO ? "Register NGO First" : !myNGO.verified ? "NGO Not Verified Yet" : "✅ Create Event"}
+                    disabled={!myNGO || !myNGO.verified || submitting}>
+                    {submitting
+                      ? <span className="btn-loading"><span className="btn-spinner" />Creating...</span>
+                      : !myNGO ? "Register NGO First"
+                      : !myNGO.verified ? "NGO Not Verified Yet"
+                      : "✅ Create Event"}
                   </button>
                 </form>
               </div>
@@ -684,6 +1185,10 @@ const UserDashboard = ({ user }) => {
   const [myApplications, setMyApplications] = useState([]);
   const [myDonations, setMyDonations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [withdrawing, setWithdrawing] = useState(null);
+  const [flashMsg, setFlashMsg] = useState("");
+
+  const showFlash = (msg) => { setFlashMsg(msg); setTimeout(() => setFlashMsg(""), 3000); };
 
   useEffect(() => {
     Promise.all([
@@ -695,10 +1200,23 @@ const UserDashboard = ({ user }) => {
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
+  const handleWithdraw = async (appId) => {
+    if (!window.confirm("Withdraw this application?")) return;
+    setWithdrawing(appId);
+    try {
+      await api.delete(`/volunteer/${appId}`);
+      setMyApplications(prev => prev.filter(a => a._id !== appId));
+      showFlash("Application withdrawn successfully");
+    } catch (err) {
+      showFlash(err.response?.data?.message || "Error withdrawing");
+    } finally { setWithdrawing(null); }
+  };
+
   const formatDate = (d) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
   return (
     <div>
+      {flashMsg && <div className="alert success" style={{ marginBottom: "1rem" }}>✅ {flashMsg}</div>}
       <div className="dashboard-header">
         <div>
           <h1>Welcome, {user?.name} 👋</h1>
@@ -722,7 +1240,12 @@ const UserDashboard = ({ user }) => {
         </Link>
       </div>
 
-      {loading ? <div className="loading">Loading...</div> : (
+      {loading ? (
+        <div className="loading">
+          <div className="spinner-ring" style={{ margin: "0 auto 1rem" }} />
+          Loading your activity...
+        </div>
+      ) : (
         <>
           <div className="profile-stats" style={{ marginBottom: "2rem" }}>
             <div className="profile-stat"><span className="stat-value">{myDonations.length}</span><span className="stat-label">Donations</span></div>
@@ -738,16 +1261,44 @@ const UserDashboard = ({ user }) => {
             {myApplications.length === 0 ? (
               <p className="empty">No applications yet. <Link to="/events">Browse Events →</Link></p>
             ) : (
-              <div className="card-grid">
-                {myApplications.slice(0, 3).map(app => (
-                  <Link key={app._id} to={`/events/${app.eventId?._id}`} className="card link-card">
-                    <div className="event-date">{app.eventId?.date ? formatDate(app.eventId.date) : "Date TBD"}</div>
-                    <div className="card-title">{app.eventId?.title || "Event"}</div>
-                    {app.eventId?.ngoId && <span className="card-meta">🏢 {app.eventId.ngoId.name}</span>}
-                    <span className={`badge ${app.status === "approved" ? "badge-green" : "badge-amber"}`}>
-                      {app.status === "approved" ? "✅ Approved" : "⏳ Pending"}
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                {myApplications.slice(0, 4).map(app => (
+                  <div key={app._id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.75rem 1rem", background: "var(--bg3)", borderRadius: "10px", border: "1px solid var(--border)" }}>
+                    <span style={{ fontSize: "1.4rem" }}>📅</span>
+                    <div style={{ flex: 1 }}>
+                      <Link to={`/events/${app.eventId?._id}`} style={{ fontWeight: 600, color: "var(--text)", textDecoration: "none" }}>
+                        {app.eventId?.title || "Event"}
+                      </Link>
+                      <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.2rem", flexWrap: "wrap" }}>
+                        {app.eventId?.ngoId && (
+                          <Link to={`/ngos/${app.eventId.ngoId._id || app.eventId.ngoId}`} style={{ fontSize: "0.8rem", color: "var(--text-dim)", textDecoration: "none" }}>
+                            🏢 {app.eventId.ngoId.name || app.eventId.ngoId}
+                          </Link>
+                        )}
+                        {app.eventId?.date && (
+                          <small style={{ color: "var(--text-dim)", fontSize: "0.8rem" }}>
+                            📅 {new Date(app.eventId.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                          </small>
+                        )}
+                      </div>
+                    </div>
+                    <span className={`badge ${
+                      app.status === "approved" ? "badge-green" :
+                      app.status === "rejected" ? "badge-red" : "badge-amber"
+                    }`}>
+                      {app.status === "approved" ? "✅ Approved" : app.status === "rejected" ? "❌ Rejected" : "⏳ Pending"}
                     </span>
-                  </Link>
+                    {app.status === "pending" && (
+                      <button
+                        className="btn-danger-xs"
+                        disabled={withdrawing === app._id}
+                        onClick={() => handleWithdraw(app._id)}
+                        style={{ flexShrink: 0 }}
+                      >
+                        {withdrawing === app._id ? "..." : "Withdraw"}
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

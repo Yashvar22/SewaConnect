@@ -145,7 +145,7 @@ const ProfilePage = () => {
                         </span>
                         {d.type === "item" && d.image && (
                           <img
-                            src={`http://localhost:5000${d.image}`}
+                            src={d.image?.startsWith("http") ? d.image : `http://localhost:5000${d.image}`}
                             alt="item"
                             className="activity-img"
                           />
@@ -200,8 +200,12 @@ const ProfilePage = () => {
                         )}
                       </div>
                       <div className="activity-meta">
-                        <span className={`badge ${app.status === "approved" ? "badge-green" : "badge-amber"}`}>
-                          {app.status === "approved" ? "✅ Approved" : "⏳ Pending"}
+                        <span className={`badge ${
+                          app.status === "approved" ? "badge-green" :
+                          app.status === "rejected" ? "badge-red" : "badge-amber"
+                        }`}>
+                          {app.status === "approved" ? "✅ Approved" :
+                           app.status === "rejected" ? "❌ Rejected" : "⏳ Pending"}
                         </span>
                         <small className="activity-date">{formatDate(app.createdAt)}</small>
                       </div>

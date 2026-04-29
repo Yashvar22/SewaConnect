@@ -14,6 +14,19 @@ const eventSchema = new mongoose.Schema(
     date: {
       type: Date,
     },
+    location: {
+      type: String,
+      trim: true,
+    },
+    maxVolunteers: {
+      type: Number,
+      default: 0, // 0 means unlimited
+    },
+    status: {
+      type: String,
+      enum: ["upcoming", "ongoing", "completed", "cancelled"],
+      default: "upcoming",
+    },
     ngoId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "NGO",
