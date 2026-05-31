@@ -24,19 +24,30 @@ app.use(
 app.use(compression());
 
 // ── CORS ──────────────────────────────────────────────────────────
+// Build allowed origins list from env variables
+// In production on Railway, CLIENT_URL = your public Railway app URL
 const allowedOrigins = [
   process.env.CLIENT_URL,
+  // Railway also exposes RAILWAY_PUBLIC_DOMAIN — use it as a fallback
+  process.env.RAILWAY_PUBLIC_DOMAIN
+    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+    : null,
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:4173", // vite preview
-].filter(Boolean);
+]
+  .filter(Boolean)
+  // Strip trailing slashes so comparisons don't fail
+  .map((o) => o.replace(/\/$/, ""));
 
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (mobile apps, Postman, curl, server-to-server)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+      const normalised = origin.replace(/\/$/, "");
+      if (allowedOrigins.includes(normalised)) return callback(null, true);
+      console.error(`❌ Error: CORS: origin "${origin}" is not allowed`);
       callback(new Error(`CORS: origin "${origin}" is not allowed`));
     },
     credentials: true,
