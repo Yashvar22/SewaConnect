@@ -9,7 +9,7 @@
  * In production both backend and frontend are served from the same origin
  * OR images are on Cloudinary, so this is just a safety fallback.
  */
-const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000/api")
+const API_BASE = (import.meta.env.VITE_API_URL || "/api")
   .replace(/\/api\/?$/, "");
 
 /**

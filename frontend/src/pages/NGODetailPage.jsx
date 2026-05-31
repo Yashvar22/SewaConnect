@@ -3,6 +3,8 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import MapView from "../components/MapView";
+import RazorpayDonationModal from "../components/RazorpayDonationModal";
+import { getImageUrl } from "../utils/imageUrl";
 
 const NGODetailPage = () => {
   const { id } = useParams();
@@ -12,6 +14,7 @@ const NGODetailPage = () => {
   const [events, setEvents] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showDonateModal, setShowDonateModal] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -39,13 +42,23 @@ const NGODetailPage = () => {
 
   return (
     <div className="page">
+      {/* Razorpay modal — launched directly from this page */}
+      {showDonateModal && user && (
+        <RazorpayDonationModal
+          ngoId={ngo._id}
+          ngoName={ngo.name}
+          onClose={() => setShowDonateModal(false)}
+          onSuccess={() => {}}
+        />
+      )}
+
       <button className="back-btn" onClick={() => navigate(-1)}>← Back to NGOs</button>
 
       {/* NGO Hero */}
       <div className="detail-hero">
         <div className="detail-avatar-wrap">
           {ngo.photo
-            ? <img src={ngo.photo.startsWith("http") ? ngo.photo : `http://localhost:5000${ngo.photo}`} alt={ngo.name} className="detail-avatar-img" style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 18 }} />
+            ? <img src={getImageUrl(ngo.photo)} alt={ngo.name} className="detail-avatar-img" style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 18 }} />
             : <div className="ngo-avatar lg">{ngo.name.charAt(0).toUpperCase()}</div>}
         </div>
         <div className="detail-info" style={{ flex: 1 }}>
@@ -80,14 +93,27 @@ const NGODetailPage = () => {
           </p>
         </div>
         {/* Quick actions */}
-        {user?.role === "user" && (
+        {user?.role === "user" && ngo.verified && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", flexShrink: 0 }}>
-            <Link
-              to={`/donate?ngo=${id}`}
+            <button
+              id="ngo-donate-btn"
               className="btn-primary"
-              style={{ display: "inline-flex", width: "auto", padding: "0.7rem 1.5rem", textDecoration: "none", borderRadius: "8px", gap: "0.4rem", whiteSpace: "nowrap" }}
+              style={{ display: "inline-flex", width: "auto", padding: "0.7rem 1.5rem", borderRadius: "8px", gap: "0.4rem", whiteSpace: "nowrap", cursor: "pointer" }}
+              onClick={() => setShowDonateModal(true)}
             >
               💝 Donate to this NGO
+            </button>
+          </div>
+        )}
+        {/* Link for non-logged-in users */}
+        {!user && ngo.verified && (
+          <div style={{ flexShrink: 0 }}>
+            <Link
+              to="/login"
+              className="btn-primary"
+              style={{ display: "inline-flex", width: "auto", padding: "0.7rem 1.5rem", textDecoration: "none", borderRadius: "8px", gap: "0.4rem" }}
+            >
+              💝 Login to Donate
             </Link>
           </div>
         )}
@@ -169,17 +195,17 @@ const NGODetailPage = () => {
       </div>
 
       {/* Donate CTA */}
-      {user?.role === "user" && (
+      {user?.role === "user" && ngo.verified && (
         <div className="apply-section" style={{ marginTop: "0" }}>
           <h3>Support {ngo.name}</h3>
-          <p>Make a financial or item donation to help this NGO continue their impactful work.</p>
-          <Link
-            to="/donate"
+          <p>Make a secure online donation to help this NGO continue their impactful work.</p>
+          <button
             className="btn-primary"
-            style={{ display: "inline-flex", width: "auto", padding: "0.85rem 2.5rem", textDecoration: "none", borderRadius: "8px", gap: "0.5rem" }}
+            style={{ display: "inline-flex", width: "auto", padding: "0.85rem 2.5rem", borderRadius: "8px", gap: "0.5rem", cursor: "pointer" }}
+            onClick={() => setShowDonateModal(true)}
           >
-            💝 Donate Now
-          </Link>
+            💝 Donate Now via Razorpay
+          </button>
         </div>
       )}
     </div>

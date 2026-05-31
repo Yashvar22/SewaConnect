@@ -3,7 +3,9 @@ import { Link } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import ConfirmModal from "../components/ConfirmModal";
+import RazorpayDonationModal from "../components/RazorpayDonationModal";
 import { NGOCategoryChart, DonationTrendChart, NGOStatusChart, VolunteersPerEventChart } from "../components/DashboardCharts";
+import { getImageUrl } from "../utils/imageUrl";
 
 // ─── USER ACTIVITY MODAL ────────────────────────────────────────
 const UserActivityModal = ({ userId, userName, onClose }) => {
@@ -117,8 +119,16 @@ const UserActivityModal = ({ userId, userName, onClose }) => {
 
 // ─── NGO DETAIL MODAL (Admin verification view) ─────────────────
 const NGODetailModal = ({ ngo, onClose, onVerify, onReject }) => {
-  if (!ngo) return null;
+  const [isBusy, setIsBusy] = useState(false);
   const formatDate = (d) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+
+  const handleAction = async (actionFn, id) => {
+    setIsBusy(true);
+    await actionFn(id);
+    setIsBusy(false);
+  };
+
+  if (!ngo) return null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -131,7 +141,7 @@ const NGODetailModal = ({ ngo, onClose, onVerify, onReject }) => {
         {/* Header: photo + name + status */}
         <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start", marginBottom: "1.25rem", flexWrap: "wrap" }}>
           {ngo.photo ? (
-            <img src={ngo.photo.startsWith("http") ? ngo.photo : `http://localhost:5000${ngo.photo}`} alt={ngo.name}
+            <img src={getImageUrl(ngo.photo)} alt={ngo.name}
               style={{ width: 80, height: 80, borderRadius: 12, objectFit: "cover", flexShrink: 0, border: "2px solid var(--border)" }} />
           ) : (
             <div className="ngo-avatar lg" style={{ width: 80, height: 80, fontSize: "2rem", borderRadius: 12, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -184,26 +194,39 @@ const NGODetailModal = ({ ngo, onClose, onVerify, onReject }) => {
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div style={{ display: "flex", gap: "0.75rem", paddingTop: "1rem", borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
-          {!ngo.verified && (
-            <button className="btn-success" style={{ flex: 1, minWidth: 130 }}
-              onClick={() => { onVerify(ngo._id); onClose(); }}>
-              ✅ Verify NGO
+        {/* Action buttons — status-aware, live-updating */}
+        <div style={{ display: "flex", gap: "0.75rem", paddingTop: "1rem", borderTop: "1px solid var(--border)", flexWrap: "wrap", alignItems: "center" }}>
+          
+          {/* ── Pending NGO: show both Verify + Reject ── */}
+          {!ngo.verified && !ngo.rejected && (
+            <>
+              <button className="btn-success" style={{ flex: 1, minWidth: 130 }} disabled={isBusy}
+                onClick={() => handleAction(onVerify, ngo._id)}>
+                {isBusy ? "..." : "✅ Verify NGO"}
+              </button>
+              <button className="btn-danger-xs" style={{ flex: 1, minWidth: 130, padding: "0.7rem 1rem", fontSize: "0.875rem" }} disabled={isBusy}
+                onClick={() => handleAction(onReject, ngo._id)}>
+                {isBusy ? "..." : "❌ Reject NGO"}
+              </button>
+            </>
+          )}
+
+          {/* ── Verified NGO: show Revoke button ── */}
+          {ngo.verified && !ngo.rejected && (
+            <button className="btn-danger-xs" style={{ flex: 1, minWidth: 130, padding: "0.7rem 1rem", fontSize: "0.875rem" }} disabled={isBusy}
+              onClick={() => handleAction(onReject, ngo._id)}>
+              {isBusy ? "..." : "🚫 Revoke Verification"}
             </button>
           )}
-          {!ngo.rejected && (
-            <button className="btn-danger-xs" style={{ flex: 1, minWidth: 130, padding: "0.7rem 1rem", fontSize: "0.875rem" }}
-              onClick={() => { onReject(ngo._id); onClose(); }}>
-              ❌ {ngo.verified ? "Revoke Verification" : "Reject NGO"}
-            </button>
-          )}
+
+          {/* ── Rejected NGO: show Re-verify button ── */}
           {ngo.rejected && (
-            <button className="btn-success" style={{ flex: 1, minWidth: 130 }}
-              onClick={() => { onVerify(ngo._id); onClose(); }}>
-              🔄 Re-verify NGO
+            <button className="btn-success" style={{ flex: 1, minWidth: 130 }} disabled={isBusy}
+              onClick={() => handleAction(onVerify, ngo._id)}>
+              {isBusy ? "..." : "🔄 Re-verify NGO"}
             </button>
           )}
+
           <button className="btn-sm" style={{ minWidth: 90 }} onClick={onClose}>Close</button>
         </div>
       </div>
@@ -221,7 +244,7 @@ const AdminDashboard = ({ user }) => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [activityModal, setActivityModal] = useState(null);
-  const [ngoDetailModal, setNgoDetailModal] = useState(null);
+  const [ngoDetailId, setNgoDetailId] = useState(null); // ID of NGO to show in detail modal
   const [confirm, setConfirm] = useState(null); // { type, id, name }
   const [statsLoading, setStatsLoading] = useState(true);
   const [chartData, setChartData] = useState(null);
@@ -294,14 +317,19 @@ const AdminDashboard = ({ user }) => {
         />
       )}
 
-      {ngoDetailModal && (
-        <NGODetailModal
-          ngo={ngoDetailModal}
-          onClose={() => setNgoDetailModal(null)}
-          onVerify={handleVerify}
-          onReject={handleReject}
-        />
-      )}
+      {/* Derive live NGO from ngos array so modal is never stale */}
+      {ngoDetailId && (() => {
+        const liveNgo = ngos.find(n => n._id === ngoDetailId);
+        if (!liveNgo) return null;
+        return (
+          <NGODetailModal
+            ngo={liveNgo}
+            onClose={() => setNgoDetailId(null)}
+            onVerify={(id) => { handleVerify(id); }}
+            onReject={(id) => { handleReject(id); }}
+          />
+        );
+      })()}
 
       <ConfirmModal
         isOpen={!!confirm}
@@ -514,7 +542,7 @@ const AdminDashboard = ({ user }) => {
                           : <span className="badge badge-amber">⏳ Pending</span>}
                       </td>
                       <td className="table-actions">
-                        <button className="btn-approve" onClick={() => setNgoDetailModal(ngo)}>
+                        <button className="btn-approve" onClick={() => setNgoDetailId(ngo._id)}>
                           View Details
                         </button>
                         {!ngo.verified && !ngo.rejected && (
@@ -635,7 +663,7 @@ const NGODashboard = ({ user }) => {
   const [volunteers, setVolunteers] = useState({}); // eventId -> volunteers[]
   const [expandedEvent, setExpandedEvent] = useState(null); // eventId whose volunteers are shown
   const [activeTab, setActiveTab] = useState("profile");
-  const [ngoForm, setNgoForm] = useState({ name: "", description: "", location: "", category: "other", contact: "", website: "" });
+  const [ngoForm, setNgoForm] = useState({ name: "", description: "", location: "", category: "other", contact: "", website: "", upiId: "", bankName: "", accountHolder: "", accountNumber: "", ifscCode: "" });
   const [createEventForm, setCreateEventForm] = useState({ title: "", description: "", date: "", location: "" });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -644,6 +672,9 @@ const NGODashboard = ({ user }) => {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [confirm, setConfirm] = useState(null); // { id, name }
   const [submitting, setSubmitting] = useState(false);
+  const [ngoReceivedDonations, setNgoReceivedDonations] = useState([]);
+  const [donationsTotal, setDonationsTotal] = useState(0);
+  const [donationsLoading, setDonationsLoading] = useState(false);
 
   const flash = (msg, isError = false) => {
     if (isError) setError(msg); else setMessage(msg);
@@ -662,6 +693,11 @@ const NGODashboard = ({ user }) => {
           category: ngo.category || "other",
           contact: ngo.contact || "",
           website: ngo.website || "",
+          upiId:         ngo.upiId         || "",
+          bankName:      ngo.bankName      || "",
+          accountHolder: ngo.accountHolder || "",
+          accountNumber: ngo.accountNumber || "",
+          ifscCode:      ngo.ifscCode      || "",
         });
         // Fetch events and stats independently so one failure doesn't break both
         const [evRes, statsRes] = await Promise.allSettled([
@@ -687,6 +723,11 @@ const NGODashboard = ({ user }) => {
       fd.append("category", ngoForm.category);
       fd.append("contact", ngoForm.contact);
       fd.append("website", ngoForm.website);
+      fd.append("upiId",         ngoForm.upiId);
+      fd.append("bankName",      ngoForm.bankName);
+      fd.append("accountHolder", ngoForm.accountHolder);
+      fd.append("accountNumber", ngoForm.accountNumber);
+      fd.append("ifscCode",      ngoForm.ifscCode);
       if (photoFile) fd.append("photo", photoFile);
       const { data } = await api.put(`/ngo/profile/${myNGO._id}`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -709,6 +750,11 @@ const NGODashboard = ({ user }) => {
       fd.append("category", ngoForm.category);
       fd.append("contact", ngoForm.contact);
       fd.append("website", ngoForm.website);
+      fd.append("upiId",         ngoForm.upiId);
+      fd.append("bankName",      ngoForm.bankName);
+      fd.append("accountHolder", ngoForm.accountHolder);
+      fd.append("accountNumber", ngoForm.accountNumber);
+      fd.append("ifscCode",      ngoForm.ifscCode);
       if (photoFile) fd.append("photo", photoFile);
       const { data } = await api.post("/ngo/register", fd, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -829,6 +875,22 @@ const NGODashboard = ({ user }) => {
           📅 Events ({events.length})
         </button>
         <button className={`tab-btn ${activeTab === "create" ? "tab-active" : ""}`} onClick={() => setActiveTab("create")}>➕ Create Event</button>
+        <button
+          className={`tab-btn ${activeTab === "donations" ? "tab-active" : ""}`}
+          onClick={() => {
+            setActiveTab("donations");
+            if (!donationsLoading && ngoReceivedDonations.length === 0 && myNGO) {
+              setDonationsLoading(true);
+              api.get("/payment/ngo-donations")
+                .then(r => {
+                  setNgoReceivedDonations(r.data.donations || []);
+                  setDonationsTotal(r.data.total || 0);
+                })
+                .catch(() => {})
+                .finally(() => setDonationsLoading(false));
+            }
+          }}
+        >💵 Donations</button>
       </div>
 
       {loading ? (
@@ -932,6 +994,45 @@ const NGODashboard = ({ user }) => {
                         onChange={e => setNgoForm(f => ({ ...f, description: e.target.value }))} rows={4} />
                     </div>
 
+                    {/* Bank / UPI Details */}
+                    <div style={{ borderTop: "1px solid var(--border)", paddingTop: "1.25rem", marginTop: "0.5rem" }}>
+                      <h3 style={{ marginBottom: "0.75rem", fontSize: "0.95rem", fontWeight: 700 }}>🏦 Bank / UPI Details <span style={{ color: "var(--text-dim)", fontSize: "0.8rem", fontWeight: 400 }}>(shown to donors)</span></h3>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>UPI ID</label>
+                          <input id="reg-upi" placeholder="e.g. ngofund@upi"
+                            value={ngoForm.upiId}
+                            onChange={e => setNgoForm(f => ({ ...f, upiId: e.target.value }))} />
+                        </div>
+                        <div className="form-group">
+                          <label>Account Holder Name</label>
+                          <input id="reg-acc-holder" placeholder="e.g. Green Hands Foundation"
+                            value={ngoForm.accountHolder}
+                            onChange={e => setNgoForm(f => ({ ...f, accountHolder: e.target.value }))} />
+                        </div>
+                      </div>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Bank Name</label>
+                          <input id="reg-bank-name" placeholder="e.g. State Bank of India"
+                            value={ngoForm.bankName}
+                            onChange={e => setNgoForm(f => ({ ...f, bankName: e.target.value }))} />
+                        </div>
+                        <div className="form-group">
+                          <label>Account Number</label>
+                          <input id="reg-acc-no" placeholder="e.g. 1234567890"
+                            value={ngoForm.accountNumber}
+                            onChange={e => setNgoForm(f => ({ ...f, accountNumber: e.target.value }))} />
+                        </div>
+                      </div>
+                      <div className="form-group" style={{ maxWidth: 260 }}>
+                        <label>IFSC Code</label>
+                        <input id="reg-ifsc" placeholder="e.g. SBIN0001234"
+                          value={ngoForm.ifscCode}
+                          onChange={e => setNgoForm(f => ({ ...f, ifscCode: e.target.value.toUpperCase() }))} />
+                      </div>
+                    </div>
+
                     <button type="submit" className="btn-primary" disabled={submitting}>
                       {submitting ? <span className="btn-loading"><span className="btn-spinner" />Registering...</span> : "🏢 Register NGO"}
                     </button>
@@ -942,7 +1043,7 @@ const NGODashboard = ({ user }) => {
                   <div className="ngo-profile-top">
                     <div className="ngo-profile-photo">
                       {photoPreview || myNGO.photo
-                        ? <img src={photoPreview || (myNGO.photo?.startsWith("http") ? myNGO.photo : `http://localhost:5000${myNGO.photo}`)} alt="NGO" />
+                        ? <img src={photoPreview || getImageUrl(myNGO.photo)} alt="NGO" />
                         : <div className="ngo-avatar lg">{myNGO.name.charAt(0)}</div>}
                     </div>
                     <div>
@@ -1024,6 +1125,46 @@ const NGODashboard = ({ user }) => {
                           if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); }
                         }} />
                     </div>
+
+                    {/* Bank / UPI Details */}
+                    <div style={{ borderTop: "1px solid var(--border)", paddingTop: "1.25rem", marginTop: "0.5rem" }}>
+                      <h3 style={{ marginBottom: "0.75rem", fontSize: "0.95rem", fontWeight: 700 }}>🏦 Bank / UPI Details <span style={{ color: "var(--text-dim)", fontSize: "0.8rem", fontWeight: 400 }}>(shown to donors)</span></h3>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>UPI ID</label>
+                          <input id="upd-upi" placeholder="e.g. ngofund@upi"
+                            value={ngoForm.upiId}
+                            onChange={e => setNgoForm(f => ({ ...f, upiId: e.target.value }))} />
+                        </div>
+                        <div className="form-group">
+                          <label>Account Holder Name</label>
+                          <input id="upd-acc-holder" placeholder="e.g. Green Hands Foundation"
+                            value={ngoForm.accountHolder}
+                            onChange={e => setNgoForm(f => ({ ...f, accountHolder: e.target.value }))} />
+                        </div>
+                      </div>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Bank Name</label>
+                          <input id="upd-bank-name" placeholder="e.g. State Bank of India"
+                            value={ngoForm.bankName}
+                            onChange={e => setNgoForm(f => ({ ...f, bankName: e.target.value }))} />
+                        </div>
+                        <div className="form-group">
+                          <label>Account Number</label>
+                          <input id="upd-acc-no" placeholder="e.g. 1234567890"
+                            value={ngoForm.accountNumber}
+                            onChange={e => setNgoForm(f => ({ ...f, accountNumber: e.target.value }))} />
+                        </div>
+                      </div>
+                      <div className="form-group" style={{ maxWidth: 260 }}>
+                        <label>IFSC Code</label>
+                        <input id="upd-ifsc" placeholder="e.g. SBIN0001234"
+                          value={ngoForm.ifscCode}
+                          onChange={e => setNgoForm(f => ({ ...f, ifscCode: e.target.value.toUpperCase() }))} />
+                      </div>
+                    </div>
+
                     <button type="submit" className="btn-primary" disabled={submitting}>
                       {submitting ? <span className="btn-loading"><span className="btn-spinner" />Updating...</span> : "Update Profile"}
                     </button>
@@ -1172,6 +1313,57 @@ const NGODashboard = ({ user }) => {
                   </button>
                 </form>
               </div>
+            </div>
+          )}
+
+          {/* ── Received Donations Tab ── */}
+          {activeTab === "donations" && (
+            <div className="tab-content">
+              <h2 className="tab-section-title">💵 Received Donations</h2>
+              {donationsLoading ? (
+                <div className="loading">
+                  <div className="spinner-ring" style={{ margin:"0 auto 1rem" }} />
+                  Loading donations...
+                </div>
+              ) : (
+                <>
+                  <div className="ngo-total-banner">
+                    <div>
+                      <div className="ngo-total-label">Total Received (Verified Payments)</div>
+                      <div className="ngo-total-value">₹{donationsTotal.toLocaleString("en-IN")}</div>
+                    </div>
+                    <span className="badge badge-green">✅ {ngoReceivedDonations.length} donation{ngoReceivedDonations.length !== 1 ? "s" : ""}</span>
+                  </div>
+                  {ngoReceivedDonations.length === 0 ? (
+                    <div className="empty-state">
+                      <span>💝</span>
+                      <h3>No donations yet</h3>
+                      <p>Verified Razorpay donations will appear here once donors contribute to your NGO.</p>
+                    </div>
+                  ) : (
+                    <div className="ngo-donations-panel">
+                      {ngoReceivedDonations.map(d => (
+                        <div key={d._id} className="ngo-donation-row">
+                          <div className="ngo-donation-amount">₹{d.amount?.toLocaleString("en-IN")}</div>
+                          <div className="ngo-donation-donor">
+                            <strong>{d.donorId?.name || "Anonymous"}</strong>
+                            <small>{d.donorId?.email}</small>
+                          </div>
+                          {d.description && (
+                            <small style={{ color:"var(--text-dim)", maxWidth:160, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                              "{d.description}"
+                            </small>
+                          )}
+                          <small style={{ color:"var(--text-dim)", flexShrink:0 }}>
+                            {new Date(d.createdAt).toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric" })}
+                          </small>
+                          <span className="badge badge-green">✅ Paid</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
         </>

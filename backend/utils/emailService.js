@@ -61,14 +61,51 @@ const sendMail = async ({ to, subject, html }) => {
   }
   try {
     const transporter = createTransporter();
-    await transporter.sendMail({ from: `"SewaConnect" <${process.env.EMAIL_USER}>`, to, subject, html });
+    await transporter.sendMail({
+      from: `"SewaConnect" <${process.env.EMAIL_USER}>`,
+      to,
+      subject,
+      html,
+    });
     console.log(`[Email] ✅ Sent → ${subject} → ${to}`);
   } catch (err) {
     console.error(`[Email] ❌ Failed → ${err.message}`);
   }
 };
 
-// ────────────────────────────────────────────────────────────────
+const createOtpMessage = (headline, bodyText) => `
+    <h2 style="color:#10b981;margin:0 0 8px;font-size:20px;">${headline}</h2>
+    <p style="color:#94a3b8;margin:0 0 24px;font-size:15px;line-height:1.6;">${bodyText}</p>
+    <div style="background:#0f172a;border-radius:12px;padding:24px;margin-bottom:28px;border-left:4px solid #10b981;text-align:center;">
+      <p style="color:#fff;font-size:32px;letter-spacing:0.2em;margin:0;">%CODE%</p>
+      <p style="color:#94a3b8;margin:18px 0 0;font-size:14px;line-height:1.7;">This code expires in 10 minutes.</p>
+    </div>`;
+
+const sendEmailVerificationOtp = async ({ to, name, otp }) => {
+  const body = createOtpMessage(
+    `Verify your email address, ${name}`,
+    `Enter the 6-digit verification code below to complete your SewaConnect registration.`,
+  ).replace("%CODE%", otp);
+  await sendMail({
+    to,
+    subject: "Your SewaConnect Email Verification Code",
+    html: wrap("Verify Your Email", body),
+  });
+};
+
+const sendPasswordResetOtp = async ({ to, name, otp }) => {
+  const body = createOtpMessage(
+    `Password reset requested`,
+    `Use the 6-digit code below to reset your SewaConnect password.`,
+  ).replace("%CODE%", otp);
+  await sendMail({
+    to,
+    subject: "SewaConnect Password Reset Code",
+    html: wrap("Reset Your Password", body),
+  });
+};
+
+// ─────────────────────────────────────────────────────────────────
 // 1. NGO VERIFIED
 // ────────────────────────────────────────────────────────────────
 const sendNGOVerifiedEmail = async ({ to, ngoName, ownerName }) => {
@@ -91,7 +128,11 @@ const sendNGOVerifiedEmail = async ({ to, ngoName, ownerName }) => {
         Go to Dashboard →
       </a>
     </div>`;
-  await sendMail({ to, subject: `✅ Your NGO "${ngoName}" has been Verified! — SewaConnect`, html: wrap("NGO Verified", body) });
+  await sendMail({
+    to,
+    subject: `✅ Your NGO "${ngoName}" has been Verified! — SewaConnect`,
+    html: wrap("NGO Verified", body),
+  });
 };
 
 // ────────────────────────────────────────────────────────────────
@@ -104,11 +145,15 @@ const sendNGORejectedEmail = async ({ to, ngoName, ownerName, reason }) => {
       Hi <strong style="color:#e2e8f0;">${ownerName}</strong>, after reviewing your application for
       <strong style="color:#e2e8f0;">${ngoName}</strong>, our admin team was unable to verify it at this time.
     </p>
-    ${reason ? `
+    ${
+      reason
+        ? `
     <div style="background:#0f172a;border-radius:12px;padding:20px 24px;margin-bottom:28px;border-left:4px solid #f87171;">
       <p style="color:#94a3b8;margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;">Reason</p>
       <p style="color:#e2e8f0;margin:0;font-size:14px;line-height:1.6;">${reason}</p>
-    </div>` : ""}
+    </div>`
+        : ""
+    }
     <p style="color:#94a3b8;margin:0 0 28px;font-size:14px;line-height:1.6;">
       You may update your NGO profile with accurate information and request re-verification from your dashboard.
     </p>
@@ -118,13 +163,23 @@ const sendNGORejectedEmail = async ({ to, ngoName, ownerName, reason }) => {
         Update My Profile →
       </a>
     </div>`;
-  await sendMail({ to, subject: `Update on Your NGO Registration — SewaConnect`, html: wrap("NGO Rejected", body) });
+  await sendMail({
+    to,
+    subject: `Update on Your NGO Registration — SewaConnect`,
+    html: wrap("NGO Rejected", body),
+  });
 };
 
 // ────────────────────────────────────────────────────────────────
 // 3. NEW VOLUNTEER APPLICATION (to NGO)
 // ────────────────────────────────────────────────────────────────
-const sendNewVolunteerApplicationEmail = async ({ to, ngoName, eventTitle, volunteerName, volunteerEmail }) => {
+const sendNewVolunteerApplicationEmail = async ({
+  to,
+  ngoName,
+  eventTitle,
+  volunteerName,
+  volunteerEmail,
+}) => {
   const body = `
     <h2 style="color:#e2e8f0;margin:0 0 8px;font-size:20px;">🙋 New Volunteer Application!</h2>
     <p style="color:#94a3b8;margin:0 0 24px;font-size:15px;line-height:1.6;">
@@ -154,15 +209,31 @@ const sendNewVolunteerApplicationEmail = async ({ to, ngoName, eventTitle, volun
         Review Application →
       </a>
     </div>`;
-  await sendMail({ to, subject: `🙋 New Volunteer for "${eventTitle}" — SewaConnect`, html: wrap("New Volunteer Application", body) });
+  await sendMail({
+    to,
+    subject: `🙋 New Volunteer for "${eventTitle}" — SewaConnect`,
+    html: wrap("New Volunteer Application", body),
+  });
 };
 
 // ────────────────────────────────────────────────────────────────
 // 4a. VOLUNTEER APPROVED (to volunteer)
 // ────────────────────────────────────────────────────────────────
-const sendVolunteerApprovedEmail = async ({ to, volunteerName, eventTitle, ngoName, eventDate, eventLocation }) => {
+const sendVolunteerApprovedEmail = async ({
+  to,
+  volunteerName,
+  eventTitle,
+  ngoName,
+  eventDate,
+  eventLocation,
+}) => {
   const dateStr = eventDate
-    ? new Date(eventDate).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+    ? new Date(eventDate).toLocaleDateString("en-IN", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
     : "Date TBD";
   const body = `
     <h2 style="color:#10b981;margin:0 0 8px;font-size:20px;">🎉 You're In, ${volunteerName}!</h2>
@@ -186,12 +257,16 @@ const sendVolunteerApprovedEmail = async ({ to, volunteerName, eventTitle, ngoNa
           <td style="color:#64748b;font-size:13px;padding:6px 0;">🗓️ Date</td>
           <td style="color:#e2e8f0;font-size:14px;padding:6px 0;text-align:right;">${dateStr}</td>
         </tr>
-        ${eventLocation ? `
+        ${
+          eventLocation
+            ? `
         <tr><td colspan="2" style="border-top:1px solid #334155;height:1px;padding:0;"></td></tr>
         <tr>
           <td style="color:#64748b;font-size:13px;padding:6px 0;">📍 Location</td>
           <td style="color:#e2e8f0;font-size:14px;padding:6px 0;text-align:right;">${eventLocation}</td>
-        </tr>` : ""}
+        </tr>`
+            : ""
+        }
       </table>
     </div>
     <div style="text-align:center;">
@@ -200,13 +275,22 @@ const sendVolunteerApprovedEmail = async ({ to, volunteerName, eventTitle, ngoNa
         View My Applications →
       </a>
     </div>`;
-  await sendMail({ to, subject: `✅ Volunteer Application Approved — ${eventTitle}`, html: wrap("Application Approved", body) });
+  await sendMail({
+    to,
+    subject: `✅ Volunteer Application Approved — ${eventTitle}`,
+    html: wrap("Application Approved", body),
+  });
 };
 
 // ────────────────────────────────────────────────────────────────
 // 4b. VOLUNTEER REJECTED (to volunteer)
 // ────────────────────────────────────────────────────────────────
-const sendVolunteerRejectedEmail = async ({ to, volunteerName, eventTitle, ngoName }) => {
+const sendVolunteerRejectedEmail = async ({
+  to,
+  volunteerName,
+  eventTitle,
+  ngoName,
+}) => {
   const body = `
     <h2 style="color:#e2e8f0;margin:0 0 8px;font-size:20px;">Update on Your Application</h2>
     <p style="color:#94a3b8;margin:0 0 24px;font-size:15px;line-height:1.6;">
@@ -226,7 +310,11 @@ const sendVolunteerRejectedEmail = async ({ to, volunteerName, eventTitle, ngoNa
         Browse More Events →
       </a>
     </div>`;
-  await sendMail({ to, subject: `Update on Your Volunteer Application — SewaConnect`, html: wrap("Application Update", body) });
+  await sendMail({
+    to,
+    subject: `Update on Your Volunteer Application — SewaConnect`,
+    html: wrap("Application Update", body),
+  });
 };
 
 module.exports = {
@@ -235,4 +323,6 @@ module.exports = {
   sendNewVolunteerApplicationEmail,
   sendVolunteerApprovedEmail,
   sendVolunteerRejectedEmail,
+  sendEmailVerificationOtp,
+  sendPasswordResetOtp,
 };

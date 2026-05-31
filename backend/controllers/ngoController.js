@@ -8,14 +8,14 @@ const { sendNGOVerifiedEmail, sendNGORejectedEmail } = require("../utils/emailSe
 // POST /api/ngo/register
 const registerNGO = async (req, res) => {
   try {
-    const { name, description, location, category, contact, website } = req.body;
+    const { name, description, location, category, contact, website, upiId, bankName, accountHolder, accountNumber, ifscCode } = req.body;
     const userId = req.user._id;
     if (!name) return res.status(400).json({ message: "NGO name is required" });
     // Check if this user already has an NGO
     const existing = await NGO.findOne({ createdBy: userId });
     if (existing) return res.status(409).json({ message: "You have already registered an NGO" });
     const photo = req.file ? req.file.path : undefined; // Cloudinary secure URL if uploaded
-    const ngo = await NGO.create({ name, description, location, category: category || "other", contact, website, photo, createdBy: userId });
+    const ngo = await NGO.create({ name, description, location, category: category || "other", contact, website, photo, upiId, bankName, accountHolder, accountNumber, ifscCode, createdBy: userId });
     res.status(201).json({ message: "NGO registered! Awaiting admin verification.", ngo });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -111,7 +111,7 @@ const rejectNGO = async (req, res) => {
 const updateNGOProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, location, category, contact, website } = req.body;
+    const { name, description, location, category, contact, website, upiId, bankName, accountHolder, accountNumber, ifscCode } = req.body;
 
     const ngo = await NGO.findById(id);
     if (!ngo) return res.status(404).json({ message: "NGO not found" });
@@ -127,10 +127,20 @@ const updateNGOProfile = async (req, res) => {
     if (category) ngo.category = category;
     if (contact !== undefined) ngo.contact = contact;
     if (website !== undefined) ngo.website = website;
+    // Bank / UPI details
+    if (upiId         !== undefined) ngo.upiId         = upiId;
+    if (bankName      !== undefined) ngo.bankName      = bankName;
+    if (accountHolder !== undefined) ngo.accountHolder = accountHolder;
+    if (accountNumber !== undefined) ngo.accountNumber = accountNumber;
+    if (ifscCode      !== undefined) ngo.ifscCode      = ifscCode;
     if (req.file) ngo.photo = req.file.path; // Cloudinary secure URL
 
+    // Reset status to pending review upon profile update
+    ngo.verified = false;
+    ngo.rejected = false;
+
     await ngo.save();
-    res.status(200).json({ message: "NGO profile updated ✅", ngo });
+    res.status(200).json({ message: "NGO profile updated ✅ Awaiting admin verification.", ngo });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }

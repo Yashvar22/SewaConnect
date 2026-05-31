@@ -11,7 +11,8 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,7 +23,9 @@ const LoginPage = () => {
       login(data.user, data.token);
       navigate("/dashboard");
     } catch (err) {
-      setError(err.response?.data?.message || "Login failed. Please try again.");
+      setError(
+        err.response?.data?.message || "Login failed. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -69,24 +72,44 @@ const LoginPage = () => {
               />
               <button
                 type="button"
-                onClick={() => setShowPass(p => !p)}
-                style={{ position: "absolute", right: "0.75rem", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: "1rem" }}
+                onClick={() => setShowPass((p) => !p)}
+                style={{
+                  position: "absolute",
+                  right: "0.75rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--text-muted)",
+                  fontSize: "1rem",
+                }}
                 aria-label="Toggle password"
               >
                 {showPass ? "🙈" : "👁️"}
               </button>
             </div>
           </div>
-          <button type="submit" className="btn-primary" disabled={loading} id="login-submit">
-            {loading ? <span className="btn-loading"><span className="btn-spinner" />Signing in...</span> : "Sign In →"}
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={loading}
+            id="login-submit"
+          >
+            {loading ? (
+              <span className="btn-loading">
+                <span className="btn-spinner" />
+                Signing in...
+              </span>
+            ) : (
+              "Sign In →"
+            )}
           </button>
         </form>
 
-        {/* Quick-access hint */}
-        <div style={{ marginTop: "1.5rem", padding: "1rem", background: "var(--bg3)", borderRadius: "10px", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-          <strong style={{ color: "var(--text)", display: "block", marginBottom: "0.35rem" }}>🧪 Demo Accounts</strong>
-          Register a new account to get started, or use existing credentials.
-        </div>
+        <p className="auth-extra-link">
+          <Link to="/forgot-password">Forgot password?</Link>
+        </p>
 
         <p className="auth-footer">
           Don't have an account? <Link to="/register">Register for free</Link>

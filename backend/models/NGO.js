@@ -13,6 +13,12 @@ const ngoSchema = new mongoose.Schema(
     },
     contact: { type: String, trim: true }, // email or phone
     website: { type: String, trim: true },
+    // Bank / UPI payment details (filled by NGO, shown to donors)
+    upiId:          { type: String, trim: true },   // e.g. ngofund@upi
+    bankName:       { type: String, trim: true },
+    accountHolder:  { type: String, trim: true },
+    accountNumber:  { type: String, trim: true },
+    ifscCode:       { type: String, trim: true },
     verified: { type: Boolean, default: false },
     rejected: { type: Boolean, default: false }, // admin rejected flag
     createdBy: {

@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import MapView from "../components/MapView";
+import { getImageUrl } from "../utils/imageUrl";
 
 const EventDetailPage = () => {
   const { id } = useParams();
@@ -206,7 +207,7 @@ const EventDetailPage = () => {
           <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start", flexWrap: "wrap" }}>
             {event.ngoId.photo ? (
               <img
-                src={event.ngoId.photo.startsWith("http") ? event.ngoId.photo : `http://localhost:5000${event.ngoId.photo}`}
+                src={getImageUrl(event.ngoId.photo)}
                 alt={event.ngoId.name}
                 style={{ width: 64, height: 64, borderRadius: 12, objectFit: "cover", flexShrink: 0 }}
               />

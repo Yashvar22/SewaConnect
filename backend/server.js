@@ -75,6 +75,7 @@ const ngoRoutes       = require("./routes/ngoRoutes");
 const eventRoutes     = require("./routes/eventRoutes");
 const volunteerRoutes = require("./routes/volunteerRoutes");
 const donationRoutes  = require("./routes/donationRoutes");
+const paymentRoutes   = require("./routes/paymentRoutes");
 const adminRoutes     = require("./routes/adminRoutes");
 
 app.use("/api",            apiLimiter,  testRoute);
@@ -83,6 +84,7 @@ app.use("/api/ngo",        apiLimiter,  ngoRoutes);
 app.use("/api/event",      apiLimiter,  eventRoutes);
 app.use("/api/volunteer",  apiLimiter,  volunteerRoutes);
 app.use("/api/donation",   apiLimiter,  donationRoutes);
+app.use("/api/payment",    apiLimiter,  paymentRoutes);
 app.use("/api/admin",      apiLimiter,  adminRoutes);
 
 // ── Serve React frontend in production ───────────────────────────

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { getImageUrl } from "../utils/imageUrl";
 
 const CAT_ICONS = { education:"📚", health:"🏥", environment:"🌿", food:"🍱", animal:"🐾", disaster:"🆘", women:"👩", youth:"👦", other:"🌐" };
 
@@ -114,7 +115,7 @@ const HomePage = () => {
               <Link to={`/ngos/${ngo._id}`} key={ngo._id} className="card ngo-card link-card">
                 <div className="ngo-avatar">
                   {ngo.photo
-                    ? <img src={ngo.photo.startsWith("http") ? ngo.photo : `http://localhost:5000${ngo.photo}`} alt={ngo.name} className="ngo-photo" />
+                    ? <img src={getImageUrl(ngo.photo)} alt={ngo.name} className="ngo-photo" />
                     : ngo.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="card-title">{ngo.name}</div>

@@ -23,8 +23,26 @@ const userSchema = new mongoose.Schema(
       enum: ["admin", "ngo", "user"],
       default: "user",
     },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationOtp: {
+      type: String,
+      trim: true,
+    },
+    emailVerificationOtpExpires: {
+      type: Date,
+    },
+    passwordResetOtp: {
+      type: String,
+      trim: true,
+    },
+    passwordResetOtpExpires: {
+      type: Date,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("User", userSchema);

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { getImageUrl } from "../utils/imageUrl";
 
 const ProfilePage = () => {
   const { user } = useAuth();
@@ -145,7 +146,7 @@ const ProfilePage = () => {
                         </span>
                         {d.type === "item" && d.image && (
                           <img
-                            src={d.image?.startsWith("http") ? d.image : `http://localhost:5000${d.image}`}
+                            src={getImageUrl(d.image)}
                             alt="item"
                             className="activity-img"
                           />

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { getImageUrl } from "../utils/imageUrl";
 
 const CATEGORIES = ["all","education","health","environment","food","animal","disaster","women","youth","other"];
 const CAT_ICONS = { education:"📚", health:"🏥", environment:"🌿", food:"🍱", animal:"🐾", disaster:"🆘", women:"👩", youth:"👦", other:"🌐", all:"🔍" };
@@ -91,7 +92,7 @@ const NGOListPage = () => {
                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                   <div className="ngo-avatar" style={{ margin: 0, flexShrink: 0 }}>
                     {ngo.photo
-                      ? <img src={ngo.photo.startsWith("http") ? ngo.photo : `http://localhost:5000${ngo.photo}`} alt={ngo.name} className="ngo-photo" />
+                      ? <img src={getImageUrl(ngo.photo)} alt={ngo.name} className="ngo-photo" />
                       : ngo.name.charAt(0).toUpperCase()}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
