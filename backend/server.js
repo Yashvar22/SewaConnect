@@ -46,7 +46,15 @@ app.use(
       // Allow requests with no origin (mobile apps, Postman, curl, server-to-server)
       if (!origin) return callback(null, true);
       const normalised = origin.replace(/\/$/, "");
-      if (allowedOrigins.includes(normalised)) return callback(null, true);
+      
+      // Allow if it matches allowed origins, or if it is a Railway domain in production
+      if (
+        allowedOrigins.includes(normalised) ||
+        (process.env.NODE_ENV === "production" && normalised.endsWith(".up.railway.app"))
+      ) {
+        return callback(null, true);
+      }
+      
       console.error(`❌ Error: CORS: origin "${origin}" is not allowed`);
       callback(new Error(`CORS: origin "${origin}" is not allowed`));
     },
